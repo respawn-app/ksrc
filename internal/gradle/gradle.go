@@ -43,7 +43,7 @@ func Resolve(ctx context.Context, runner executil.Runner, opts ResolveOptions) (
 		return ResolveResult{}, err
 	}
 
-	args := []string{"-I", scriptPath, "-q", "-Dorg.gradle.console=plain"}
+	args := []string{"-I", scriptPath, "-Dorg.gradle.console=plain", "--info", "--no-configuration-cache"}
 	if opts.Offline {
 		args = append(args, "--offline")
 	}
@@ -141,7 +141,7 @@ func findGradle(runner executil.Runner, projectDir string) (string, error) {
 }
 
 func writeInitScript() (string, func(), error) {
-	file, err := os.CreateTemp("", "ksrc-init-*.gradle.kts")
+	file, err := os.CreateTemp("", "ksrc-init-*.gradle")
 	if err != nil {
 		return "", nil, err
 	}
