@@ -14,12 +14,11 @@ $skill-installer install https://github.com/respawn-app/ksrc/tree/main/docs/skil
 ### Claude Code (plugin marketplace)
 This repo hosts a Claude Code plugin marketplace so anyone can install the `ksrc` skill plugin:
 ```
-/plugin marketplace add respawn-app/ksrc
+/plugin marketplace add respawn-app/claude-plugin-marketplace
 /plugin install ksrc@respawn-tools
 ```
 
-Marketplace file: `.claude-plugin/marketplace.json`  
-Plugin source: `plugins/ksrc/`
+Marketplace repo: `respawn-app/claude-plugin-marketplace`
 
 Keep the plugin skill in sync with the source of truth:
 ```
