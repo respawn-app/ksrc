@@ -67,10 +67,11 @@ ksrc search [<module>] -q <pattern> [flags]
 - `--offline`: Only use cached sources, error if missing
 - `--max-results <n>`: Limit output
 - `--rg-args <args>`: Extra args passed to `rg`
+- `--show-extracted-path`: Include temp extracted paths in output (off by default)
 - `--emit-id <always|auto|never>`: Include file identifiers (default: `always`)
 
 **Output (default)**
-`<file-id> <file>:<line>:<col>:<match>` (rg‑compatible with leading file id)
+`<file-id> <inner-path>:<line>:<col>:<match>` (rg‑compatible with leading file id; use `--show-extracted-path` for temp paths)
 
 **Aliases**
 - `ksrc rg` is an alias of `ksrc search`

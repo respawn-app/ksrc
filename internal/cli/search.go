@@ -13,6 +13,7 @@ func newSearchCmd(app *App) *cobra.Command {
 	var flags ResolveFlags
 	var query string
 	var rgArgs string
+	var showExtractedPath bool
 
 	cmd := &cobra.Command{
 		Use:     "search [<module>]",
@@ -50,7 +51,14 @@ func newSearchCmd(app *App) *cobra.Command {
 				return err
 			}
 			for _, m := range matches {
-				fmt.Fprintf(cmd.OutOrStdout(), "%s %s:%d:%d:%s\n", m.FileID, m.File, m.Line, m.Column, m.Text)
+				path := m.File
+				if !showExtractedPath {
+					path = fileIDInnerPath(m.FileID)
+					if path == "" {
+						path = "<src>"
+					}
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "%s %s:%d:%d:%s\n", m.FileID, path, m.Line, m.Column, m.Text)
 			}
 			return nil
 		},
@@ -70,6 +78,15 @@ func newSearchCmd(app *App) *cobra.Command {
 	cmd.Flags().BoolVar(&flags.Offline, "offline", false, "offline mode")
 	cmd.Flags().BoolVar(&flags.Refresh, "refresh", false, "refresh dependencies")
 	cmd.Flags().StringVar(&rgArgs, "rg-args", "", "extra args for rg (comma-separated)")
+	cmd.Flags().BoolVar(&showExtractedPath, "show-extracted-path", false, "include temp extracted path in output")
 
 	return cmd
+}
+
+func fileIDInnerPath(fileID string) string {
+	parts := strings.SplitN(fileID, "!/", 2)
+	if len(parts) != 2 {
+		return ""
+	}
+	return parts[1]
 }
