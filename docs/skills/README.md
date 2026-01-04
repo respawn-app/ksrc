@@ -11,8 +11,23 @@ Codex installs skills from GitHub paths via `$skill-installer`. Publish by keepi
 $skill-installer install https://github.com/respawn-app/ksrc/tree/main/docs/skills/ksrc
 ```
 
-### Claude Code
-Claude Code discovers skills from the filesystem. For personal installation:
+### Claude Code (plugin marketplace)
+This repo hosts a Claude Code plugin marketplace so anyone can install the `ksrc` skill plugin:
+```
+/plugin marketplace add respawn-app/ksrc
+/plugin install ksrc@respawn-tools
+```
+
+Marketplace file: `.claude-plugin/marketplace.json`  
+Plugin source: `plugins/ksrc/`
+
+Keep the plugin skill in sync with the source of truth:
+```
+scripts/sync-claude-plugin-skill.sh
+```
+
+### Claude Code (manual install)
+Claude Code also discovers skills from the filesystem. For personal installation:
 ```
 mkdir -p ~/.claude/skills/ksrc
 cp docs/skills/ksrc/SKILL.md ~/.claude/skills/ksrc/SKILL.md
