@@ -1,0 +1,67 @@
+# OS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+.VolumeIcon.icns
+.fseventsd
+.TemporaryItems
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.Trash-*
+
+# Editors/IDEs
+.idea/
+*.iml
+.vscode/
+.fleet/
+.project
+.classpath
+.settings/
+
+# Go
+/bin/
+/dist/
+/build/
+/out/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+*.prof
+*.pprof
+coverage.out
+coverprofile
+*.coverprofile
+*.trace
+
+# Gradle / Java / Kotlin
+.gradle/
+build/
+.kotlin/
+*.class
+hs_err_pid*.log
+replay_pid*.log
+
+# Logs / temp
+*.log
+*.tmp
+*.temp
+*.swp
+*.swo
+tmp/
+
+# Local env
+.env
+.env.*
+
+# Local skill installs (do not commit)
+.codex/
+.claude/
