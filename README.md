@@ -11,9 +11,19 @@ Fast, one‑liner search and file read for Kotlin dependency sources without ope
 - Supports `cat`/`open` by file‑id or path with line slicing.
 
 ## Install
-We currently publish standalone binaries via GitHub Releases. Download the appropriate archive for your OS/arch and place `ksrc` on your `PATH`.
+We currently publish standalone binaries via GitHub Releases.
 
-Install script: TBD
+Install script (macOS/Linux):
+```
+curl -fsSL https://raw.githubusercontent.com/respawn-app/ksrc/main/scripts/install.sh | sh
+```
+
+Optional version:
+```
+curl -fsSL https://raw.githubusercontent.com/respawn-app/ksrc/main/scripts/install.sh | sh -s -- --version vX.Y.Z
+```
+
+Manual install: download the appropriate archive for your OS/arch and place `ksrc` on your `PATH`.
 
 ## Skills
 
