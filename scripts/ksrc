@@ -1,0 +1,4 @@
+#!/bin/sh
+set -e
+cd /Users/nek/Developer/Tools/ksrc
+exec go run ./cmd/ksrc "$@"
