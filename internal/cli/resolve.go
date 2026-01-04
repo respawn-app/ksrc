@@ -1,0 +1,41 @@
+package cli
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/spf13/cobra"
+)
+
+func newResolveCmd(app *App) *cobra.Command {
+	var flags ResolveFlags
+
+	cmd := &cobra.Command{
+		Use:   "resolve",
+		Short: "Resolve dependency sources",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			sources, _, err := resolveSources(context.Background(), app, flags, "", true, true)
+			if err != nil {
+				return err
+			}
+			for _, s := range sources {
+				fmt.Fprintf(cmd.OutOrStdout(), "%s|%s\n", s.Coord.String(), s.Path)
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&flags.Project, "project", ".", "project root")
+	cmd.Flags().StringVar(&flags.Module, "module", "", "module selector (group:artifact[:version])")
+	cmd.Flags().StringVar(&flags.Group, "group", "", "group filter")
+	cmd.Flags().StringVar(&flags.Artifact, "artifact", "", "artifact filter")
+	cmd.Flags().StringVar(&flags.Version, "version", "", "version filter")
+	cmd.Flags().StringVar(&flags.Scope, "scope", "compile", "dependency scope (compile|runtime|test|all)")
+	cmd.Flags().StringVar(&flags.Config, "config", "", "configuration name(s) (comma-separated)")
+	cmd.Flags().StringVar(&flags.Targets, "targets", "", "KMP targets (comma-separated)")
+	cmd.Flags().StringSliceVar(&flags.Subprojects, "subproject", nil, "limit to subproject (repeatable)")
+	cmd.Flags().BoolVar(&flags.Offline, "offline", false, "offline mode")
+	cmd.Flags().BoolVar(&flags.Refresh, "refresh", false, "refresh dependencies")
+
+	return cmd
+}

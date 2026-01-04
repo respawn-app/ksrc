@@ -1,0 +1,161 @@
+package gradle
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/respawn-app/ksrc/internal/executil"
+	"github.com/respawn-app/ksrc/internal/resolve"
+)
+
+type ResolveOptions struct {
+	ProjectDir  string
+	Module      string
+	Group       string
+	Artifact    string
+	Version     string
+	Scope       string
+	Configs     []string
+	Targets     []string
+	Subprojects []string
+	Dep         string
+	Offline     bool
+	Refresh     bool
+}
+
+type ResolveResult struct {
+	Sources []resolve.SourceJar
+	Deps    []resolve.Coord
+}
+
+func Resolve(ctx context.Context, runner executil.Runner, opts ResolveOptions) (ResolveResult, error) {
+	scriptPath, cleanup, err := writeInitScript()
+	if err != nil {
+		return ResolveResult{}, err
+	}
+	defer cleanup()
+
+	gradleCmd, err := findGradle(runner, opts.ProjectDir)
+	if err != nil {
+		return ResolveResult{}, err
+	}
+
+	args := []string{"-I", scriptPath, "-q", "-Dorg.gradle.console=plain"}
+	if opts.Offline {
+		args = append(args, "--offline")
+	}
+	if opts.Refresh {
+		args = append(args, "--refresh-dependencies")
+	}
+	args = append(args, buildProps(opts)...) // -P...
+	args = append(args, "ksrcSources")
+
+	stdout, stderr, err := runner.Run(ctx, opts.ProjectDir, gradleCmd, args...)
+	if err != nil {
+		return ResolveResult{}, fmt.Errorf("gradle failed: %w\n%s", err, strings.TrimSpace(stderr))
+	}
+
+	result := ResolveResult{}
+	seen := make(map[string]struct{})
+	for _, line := range strings.Split(stdout, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if strings.HasPrefix(line, "KSRC|") {
+			coord, path, ok := parseLine(line, "KSRC|")
+			if !ok {
+				continue
+			}
+			key := coord.String() + "|" + path
+			if _, exists := seen[key]; exists {
+				continue
+			}
+			seen[key] = struct{}{}
+			result.Sources = append(result.Sources, resolve.SourceJar{Coord: coord, Path: path})
+			continue
+		}
+		if strings.HasPrefix(line, "KSRCDEP|") {
+			coord, _, ok := parseLine(line, "KSRCDEP|")
+			if !ok {
+				continue
+			}
+			result.Deps = append(result.Deps, coord)
+		}
+	}
+	return result, nil
+}
+
+func buildProps(opts ResolveOptions) []string {
+	props := []string{}
+	add := func(k, v string) {
+		if strings.TrimSpace(v) == "" {
+			return
+		}
+		props = append(props, "-P"+k+"="+v)
+	}
+	add("ksrcModule", opts.Module)
+	add("ksrcGroup", opts.Group)
+	add("ksrcArtifact", opts.Artifact)
+	add("ksrcVersion", opts.Version)
+	add("ksrcScope", opts.Scope)
+	if len(opts.Configs) > 0 {
+		add("ksrcConfig", strings.Join(opts.Configs, ","))
+	}
+	if len(opts.Targets) > 0 {
+		add("ksrcTargets", strings.Join(opts.Targets, ","))
+	}
+	if len(opts.Subprojects) > 0 {
+		add("ksrcSubprojects", strings.Join(opts.Subprojects, ","))
+	}
+	add("ksrcDep", opts.Dep)
+	return props
+}
+
+func parseLine(line, prefix string) (resolve.Coord, string, bool) {
+	trim := strings.TrimPrefix(line, prefix)
+	parts := strings.SplitN(trim, "|", 2)
+	coord, err := resolve.ParseCoord(parts[0])
+	if err != nil {
+		return resolve.Coord{}, "", false
+	}
+	if len(parts) == 1 {
+		return coord, "", true
+	}
+	return coord, strings.TrimSpace(parts[1]), true
+}
+
+func findGradle(runner executil.Runner, projectDir string) (string, error) {
+	wrapper := filepath.Join(projectDir, "gradlew")
+	if info, err := os.Stat(wrapper); err == nil && !info.IsDir() {
+		return "./gradlew", nil
+	}
+	path, err := runner.LookPath("gradle")
+	if err == nil && path != "" {
+		return "gradle", nil
+	}
+	return "", fmt.Errorf("gradle not found (no ./gradlew and gradle not on PATH)")
+}
+
+func writeInitScript() (string, func(), error) {
+	file, err := os.CreateTemp("", "ksrc-init-*.gradle.kts")
+	if err != nil {
+		return "", nil, err
+	}
+	if _, err := file.WriteString(InitScript()); err != nil {
+		_ = file.Close()
+		_ = os.Remove(file.Name())
+		return "", nil, err
+	}
+	if err := file.Close(); err != nil {
+		_ = os.Remove(file.Name())
+		return "", nil, err
+	}
+	cleanup := func() {
+		_ = os.Remove(file.Name())
+	}
+	return file.Name(), cleanup, nil
+}

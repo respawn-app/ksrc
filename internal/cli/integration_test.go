@@ -1,0 +1,84 @@
+package cli
+
+import (
+	"archive/zip"
+	"bytes"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+func TestSearchAndCatIntegration(t *testing.T) {
+	app := NewApp()
+	if _, err := app.Runner.LookPath("rg"); err != nil {
+		t.Skip("rg not available")
+	}
+
+	projectDir := filepath.Clean(filepath.Join("..", "..", "testdata", "fixture"))
+	jarPath := filepath.Join(t.TempDir(), "kotlinx-datetime-sources.jar")
+	inner := "kotlinx/datetime/LocalDate.kt"
+
+	if err := writeTestJar(jarPath, inner, "public class LocalDate\n"); err != nil {
+		t.Fatalf("write jar: %v", err)
+	}
+
+	t.Setenv("KSRC_TEST_JAR", jarPath)
+
+	searchOut, err := runCommand(app, []string{"search", "org.jetbrains.kotlinx:kotlinx-datetime", "-q", "public class LocalDate", "--project", projectDir})
+	if err != nil {
+		t.Fatalf("search error: %v", err)
+	}
+	if !strings.Contains(searchOut, "org.jetbrains.kotlinx:kotlinx-datetime:0.6.1!/"+inner) {
+		t.Fatalf("unexpected search output: %s", searchOut)
+	}
+
+	// Extract file-id from search output
+	fields := strings.Fields(searchOut)
+	if len(fields) == 0 {
+		t.Fatalf("no fields in search output")
+	}
+	fileID := fields[0]
+
+	catOut, err := runCommand(app, []string{"cat", fileID, "--project", projectDir, "--lines", "1,1"})
+	if err != nil {
+		t.Fatalf("cat error: %v", err)
+	}
+	if strings.TrimSpace(catOut) != "public class LocalDate" {
+		t.Fatalf("unexpected cat output: %q", catOut)
+	}
+}
+
+func runCommand(app *App, args []string) (string, error) {
+	cmd := NewRootCommand(app)
+	cmd.SetArgs(args)
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	err := cmd.Execute()
+	return out.String(), err
+}
+
+func writeTestJar(path, inner, content string) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	zw := zip.NewWriter(f)
+	w, err := zw.Create(inner)
+	if err != nil {
+		_ = zw.Close()
+		_ = f.Close()
+		return err
+	}
+	if _, err := w.Write([]byte(content)); err != nil {
+		_ = zw.Close()
+		_ = f.Close()
+		return err
+	}
+	if err := zw.Close(); err != nil {
+		_ = f.Close()
+		return err
+	}
+	return f.Close()
+}

@@ -1,0 +1,50 @@
+package cli
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/respawn-app/ksrc/internal/resolve"
+	"github.com/spf13/cobra"
+)
+
+func newFetchCmd(app *App) *cobra.Command {
+	var flags ResolveFlags
+
+	cmd := &cobra.Command{
+		Use:   "fetch <coord>",
+		Short: "Ensure sources for a coordinate exist in Gradle caches",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			coord, err := resolve.ParseCoord(args[0])
+			if err != nil {
+				return err
+			}
+			if coord.Version == "" {
+				return fmt.Errorf("version required for fetch")
+			}
+			flags.Module = coord.String()
+			flags.Version = coord.Version
+
+			sources, _, err := resolveSources(context.Background(), app, flags, coord.String(), false, false)
+			if err != nil {
+				return err
+			}
+			if len(sources) == 0 {
+				return fmt.Errorf("E_NO_SOURCES: no sources resolved")
+			}
+			for _, s := range sources {
+				if s.Coord.Group == coord.Group && s.Coord.Artifact == coord.Artifact && s.Coord.Version == coord.Version {
+					fmt.Fprintf(cmd.OutOrStdout(), "%s|%s\n", s.Coord.String(), s.Path)
+				}
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&flags.Project, "project", ".", "project root")
+	cmd.Flags().BoolVar(&flags.Offline, "offline", false, "offline mode")
+	cmd.Flags().BoolVar(&flags.Refresh, "refresh", false, "refresh dependencies")
+
+	return cmd
+}

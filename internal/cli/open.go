@@ -1,0 +1,100 @@
+package cli
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"os/exec"
+	"strings"
+
+	"github.com/respawn-app/ksrc/internal/cat"
+	"github.com/respawn-app/ksrc/internal/resolve"
+	"github.com/spf13/cobra"
+)
+
+func newOpenCmd(app *App) *cobra.Command {
+	var flags ResolveFlags
+	var lines string
+
+	cmd := &cobra.Command{
+		Use:   "open <file-id|path>",
+		Short: "Open a file in $PAGER",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			arg := strings.TrimSpace(args[0])
+			lr, err := cat.ParseLineRange(lines)
+			if err != nil {
+				return err
+			}
+
+			var data []byte
+			if strings.Contains(arg, "!/") {
+				coord, inner, err := resolve.ParseFileID(arg)
+				if err != nil {
+					return err
+				}
+				flags.Module = coord.String()
+				flags.Version = coord.Version
+				sources, _, err := resolveSources(context.Background(), app, flags, "", true, false)
+				if err != nil {
+					return err
+				}
+				if len(sources) == 0 {
+					return fmt.Errorf("E_NO_SOURCES: no sources resolved")
+				}
+				jarPath, err := findJarByCoord(sources, coord)
+				if err != nil {
+					return err
+				}
+				data, err = cat.ReadFileFromZip(jarPath, inner, lr)
+				if err != nil {
+					return err
+				}
+			} else {
+				if flags.Module == "" && flags.Group == "" && flags.Artifact == "" {
+					return fmt.Errorf("path requires --module or a file-id")
+				}
+				sources, _, err := resolveSources(context.Background(), app, flags, "", true, true)
+				if err != nil {
+					return err
+				}
+				if len(sources) == 0 {
+					return fmt.Errorf("E_NO_SOURCES: no sources resolved")
+				}
+				jarPath, inner, err := findFileInJars(sources, arg)
+				if err != nil {
+					return err
+				}
+				data, err = cat.ReadFileFromZip(jarPath, inner, lr)
+				if err != nil {
+					return err
+				}
+			}
+
+			pager := os.Getenv("PAGER")
+			if pager == "" {
+				pager = "less -R"
+			}
+			cmdExec := exec.Command("sh", "-c", pager)
+			cmdExec.Stdin = strings.NewReader(string(data))
+			cmdExec.Stdout = cmd.OutOrStdout()
+			cmdExec.Stderr = cmd.ErrOrStderr()
+			return cmdExec.Run()
+		},
+	}
+
+	cmd.Flags().StringVar(&flags.Project, "project", ".", "project root")
+	cmd.Flags().StringVar(&flags.Module, "module", "", "module selector (group:artifact[:version])")
+	cmd.Flags().StringVar(&flags.Group, "group", "", "group filter")
+	cmd.Flags().StringVar(&flags.Artifact, "artifact", "", "artifact filter")
+	cmd.Flags().StringVar(&flags.Version, "version", "", "version filter")
+	cmd.Flags().StringVar(&flags.Scope, "scope", "compile", "dependency scope (compile|runtime|test|all)")
+	cmd.Flags().StringVar(&flags.Config, "config", "", "configuration name(s) (comma-separated)")
+	cmd.Flags().StringVar(&flags.Targets, "targets", "", "KMP targets (comma-separated)")
+	cmd.Flags().StringSliceVar(&flags.Subprojects, "subproject", nil, "limit to subproject (repeatable)")
+	cmd.Flags().BoolVar(&flags.Offline, "offline", false, "offline mode")
+	cmd.Flags().BoolVar(&flags.Refresh, "refresh", false, "refresh dependencies")
+	cmd.Flags().StringVar(&lines, "lines", "", "line range (start,end)")
+
+	return cmd
+}
