@@ -2,7 +2,6 @@ package cli
 
 import (
 	"archive/zip"
-	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -47,16 +46,6 @@ func TestSearchAndCatIntegration(t *testing.T) {
 	if strings.TrimSpace(catOut) != "public class LocalDate" {
 		t.Fatalf("unexpected cat output: %q", catOut)
 	}
-}
-
-func runCommand(app *App, args []string) (string, error) {
-	cmd := NewRootCommand(app)
-	cmd.SetArgs(args)
-	var out bytes.Buffer
-	cmd.SetOut(&out)
-	cmd.SetErr(&out)
-	err := cmd.Execute()
-	return out.String(), err
 }
 
 func writeTestJar(path, inner, content string) error {

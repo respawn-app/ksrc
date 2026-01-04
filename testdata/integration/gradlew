@@ -1,0 +1,12 @@
+#!/bin/sh
+BASEDIR=$(cd "$(dirname "$0")" && pwd)
+WRAPPER_DIR="$BASEDIR/gradle/wrapper"
+CLASSPATH="$WRAPPER_DIR/gradle-wrapper-main-9.2.1.jar:$WRAPPER_DIR/gradle-wrapper-shared-9.2.1.jar"
+
+if [ -n "$JAVA_HOME" ] && [ -x "$JAVA_HOME/bin/java" ]; then
+  JAVA_CMD="$JAVA_HOME/bin/java"
+else
+  JAVA_CMD="java"
+fi
+
+exec "$JAVA_CMD" -classpath "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain "$@"
