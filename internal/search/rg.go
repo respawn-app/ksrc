@@ -40,53 +40,10 @@ func Run(ctx context.Context, runner executil.Runner, opts Options) ([]Match, er
 		return nil, fmt.Errorf("rg not found on PATH")
 	}
 
-	root, err := os.MkdirTemp("", "ksrc-search-")
-	if err != nil {
-		return nil, err
+	if supportsZipSearch(ctx, runner) {
+		return runZipSearch(ctx, runner, opts)
 	}
-	defer os.RemoveAll(root)
-
-	extractRoots := make(map[string]resolve.Coord)
-	searchDirs := make([]string, 0, len(opts.Jars))
-	for i, j := range opts.Jars {
-		dir := filepath.Join(root, fmt.Sprintf("jar-%d", i))
-		if err := extractJar(j.Path, dir); err != nil {
-			return nil, err
-		}
-		extractRoots[dir] = j.Coord
-		searchDirs = append(searchDirs, dir)
-	}
-
-	args := []string{"--no-heading", "--line-number", "--column", "--color=never", "--with-filename", "-g", "*.kt"}
-	args = append(args, opts.RGArgs...)
-	args = append(args, opts.Pattern)
-	args = append(args, searchDirs...)
-
-	stdout, stderr, err := runner.Run(ctx, opts.WorkDir, "rg", args...)
-	if err != nil {
-		if strings.TrimSpace(stdout) == "" {
-			return nil, fmt.Errorf("rg failed: %w\n%s", err, strings.TrimSpace(stderr))
-		}
-	}
-
-	matches := []Match{}
-	for _, line := range strings.Split(stdout, "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		m, ok := parseRgLine(line)
-		if !ok {
-			continue
-		}
-		coord, inner, ok := mapToCoord(extractRoots, m.File)
-		if !ok {
-			continue
-		}
-		m.FileID = coord.String() + "!/" + inner
-		matches = append(matches, m)
-	}
-	return matches, nil
+	return runExtractSearch(ctx, runner, opts)
 }
 
 func parseRgLine(line string) (Match, bool) {
@@ -155,6 +112,141 @@ func mapToCoord(roots map[string]resolve.Coord, filePath string) (resolve.Coord,
 		return coord, rel, true
 	}
 	return resolve.Coord{}, "", false
+}
+
+func mapToCoordFromJarPath(jarPaths map[string]resolve.Coord, filePath string) (resolve.Coord, string, bool) {
+	for jar, coord := range jarPaths {
+		prefix := jar + ":"
+		if !strings.HasPrefix(filePath, prefix) {
+			continue
+		}
+		inner := strings.TrimPrefix(filePath, prefix)
+		inner = strings.TrimPrefix(inner, "/")
+		return coord, inner, true
+	}
+	return resolve.Coord{}, "", false
+}
+
+func runZipSearch(ctx context.Context, runner executil.Runner, opts Options) ([]Match, error) {
+	jarPaths := make(map[string]resolve.Coord, len(opts.Jars))
+	searchJars := make([]string, 0, len(opts.Jars))
+	for _, j := range opts.Jars {
+		jarPaths[j.Path] = j.Coord
+		searchJars = append(searchJars, j.Path)
+	}
+
+	args := []string{"--search-zip", "--no-heading", "--line-number", "--column", "--color=never", "--with-filename", "-g", "*.kt"}
+	args = append(args, opts.RGArgs...)
+	args = append(args, opts.Pattern)
+	args = append(args, searchJars...)
+
+	stdout, stderr, err := runner.Run(ctx, opts.WorkDir, "rg", args...)
+	if err != nil {
+		if strings.TrimSpace(stdout) == "" {
+			return nil, fmt.Errorf("rg failed: %w\n%s", err, strings.TrimSpace(stderr))
+		}
+	}
+
+	matches := []Match{}
+	for _, line := range strings.Split(stdout, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		m, ok := parseRgLine(line)
+		if !ok {
+			continue
+		}
+		coord, inner, ok := mapToCoordFromJarPath(jarPaths, m.File)
+		if !ok {
+			continue
+		}
+		m.FileID = coord.String() + "!/" + inner
+		matches = append(matches, m)
+	}
+	return matches, nil
+}
+
+func runExtractSearch(ctx context.Context, runner executil.Runner, opts Options) ([]Match, error) {
+	root, err := os.MkdirTemp("", "ksrc-search-")
+	if err != nil {
+		return nil, err
+	}
+	defer os.RemoveAll(root)
+
+	extractRoots := make(map[string]resolve.Coord)
+	searchDirs := make([]string, 0, len(opts.Jars))
+	for i, j := range opts.Jars {
+		dir := filepath.Join(root, fmt.Sprintf("jar-%d", i))
+		if err := extractJar(j.Path, dir); err != nil {
+			return nil, err
+		}
+		extractRoots[dir] = j.Coord
+		searchDirs = append(searchDirs, dir)
+	}
+
+	args := []string{"--no-heading", "--line-number", "--column", "--color=never", "--with-filename", "-g", "*.kt"}
+	args = append(args, opts.RGArgs...)
+	args = append(args, opts.Pattern)
+	args = append(args, searchDirs...)
+
+	stdout, stderr, err := runner.Run(ctx, opts.WorkDir, "rg", args...)
+	if err != nil {
+		if strings.TrimSpace(stdout) == "" {
+			return nil, fmt.Errorf("rg failed: %w\n%s", err, strings.TrimSpace(stderr))
+		}
+	}
+
+	matches := []Match{}
+	for _, line := range strings.Split(stdout, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		m, ok := parseRgLine(line)
+		if !ok {
+			continue
+		}
+		coord, inner, ok := mapToCoord(extractRoots, m.File)
+		if !ok {
+			continue
+		}
+		m.FileID = coord.String() + "!/" + inner
+		matches = append(matches, m)
+	}
+	return matches, nil
+}
+
+func supportsZipSearch(ctx context.Context, runner executil.Runner) bool {
+	file, err := os.CreateTemp("", "ksrc-rg-probe-*.zip")
+	if err != nil {
+		return false
+	}
+	path := file.Name()
+	zw := zip.NewWriter(file)
+	w, err := zw.Create("probe.txt")
+	if err == nil {
+		_, _ = w.Write([]byte("ksrc-zip-probe"))
+	}
+	_ = zw.Close()
+	_ = file.Close()
+	defer os.Remove(path)
+
+	args := []string{"--search-zip", "--no-heading", "--line-number", "--column", "--color=never", "-g", "*.txt", "ksrc-zip-probe", path}
+	stdout, _, err := runner.Run(ctx, "", "rg", args...)
+	if err != nil {
+		return false
+	}
+	for _, line := range strings.Split(stdout, "\n") {
+		m, ok := parseRgLine(strings.TrimSpace(line))
+		if !ok {
+			continue
+		}
+		if strings.HasPrefix(m.File, path+":") {
+			return true
+		}
+	}
+	return false
 }
 
 func extractJar(src, dest string) error {
