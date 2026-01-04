@@ -12,3 +12,14 @@ func TestParseRgLine(t *testing.T) {
 		t.Fatalf("unexpected match: %+v", m)
 	}
 }
+
+func TestParseRgContextLine(t *testing.T) {
+	line := "/tmp/foo-bar/baz.kt-7-context line"
+	m, ok := parseRgLine(line)
+	if !ok {
+		t.Fatal("expected parse ok")
+	}
+	if m.File != "/tmp/foo-bar/baz.kt" || m.Line != 7 || m.Column != 0 || m.Text != "context line" {
+		t.Fatalf("unexpected match: %+v", m)
+	}
+}

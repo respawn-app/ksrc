@@ -48,7 +48,7 @@ Search dependency sources for a target module or group.
 
 **Usage**
 ```
-ksrc search [<module>] -q <pattern> [flags]
+ksrc search [<module>] -q <pattern> [flags] [-- <rg-args>]
 ```
 `<module>` is required unless `--all` is provided.
 
@@ -65,8 +65,10 @@ ksrc search [<module>] -q <pattern> [flags]
 - `--scope <compile|runtime|test|all>`: Dependency scope (default: `compile`)
 - `--refresh`: Re‑resolve and re‑download sources
 - `--offline`: Only use cached sources, error if missing
+- `--context <n>`: Show N lines before/after matches (rg `-C`)
 - `--max-results <n>`: Limit output
-- `--rg-args <args>`: Extra args passed to `rg`
+- `--rg-args <args>`: Extra args passed to `rg` (comma‑separated)
+- `-- <rg-args>`: Pass through raw `rg` args without CSV encoding
 - `--show-extracted-path`: Include temp extracted paths in output (off by default)
 - `--emit-id <always|auto|never>`: Include file identifiers (default: `always`)
 

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -53,9 +54,9 @@ func noSourcesErr(flags ResolveFlags, hint string) error {
 		parts = append(parts, hint)
 	}
 	if len(parts) == 0 {
-		return fmt.Errorf(strings.TrimSuffix(msg, "."))
+		return errors.New(strings.TrimSuffix(msg, "."))
 	}
-	return fmt.Errorf("%s %s", msg, strings.Join(parts, " "))
+	return errors.New(msg + " " + strings.Join(parts, " "))
 }
 
 func noSourcesHintForFlags(flags ResolveFlags) string {

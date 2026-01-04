@@ -90,6 +90,13 @@ func Run(ctx context.Context, runner executil.Runner, opts Options) ([]Match, er
 }
 
 func parseRgLine(line string) (Match, bool) {
+	if m, ok := parseRgMatchLine(line); ok {
+		return m, true
+	}
+	return parseRgContextLine(line)
+}
+
+func parseRgMatchLine(line string) (Match, bool) {
 	// file:line:col:match
 	last := strings.LastIndex(line, ":")
 	if last <= 0 {
@@ -116,6 +123,26 @@ func parseRgLine(line string) (Match, bool) {
 		return Match{}, false
 	}
 	return Match{File: file, Line: ln, Column: col, Text: text}, true
+}
+
+func parseRgContextLine(line string) (Match, bool) {
+	// file-line-text (rg -C with --no-heading --line-number --column)
+	last := strings.LastIndex(line, "-")
+	if last <= 0 {
+		return Match{}, false
+	}
+	second := strings.LastIndex(line[:last], "-")
+	if second <= 0 {
+		return Match{}, false
+	}
+	file := line[:second]
+	lineStr := line[second+1 : last]
+	text := line[last+1:]
+	ln, err := strconv.Atoi(lineStr)
+	if err != nil {
+		return Match{}, false
+	}
+	return Match{File: file, Line: ln, Column: 0, Text: text}, true
 }
 
 func mapToCoord(roots map[string]resolve.Coord, filePath string) (resolve.Coord, string, bool) {

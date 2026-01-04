@@ -18,7 +18,7 @@ func TestSearchAndCatIntegration(t *testing.T) {
 	jarPath := filepath.Join(t.TempDir(), "kotlinx-datetime-sources.jar")
 	inner := "kotlinx/datetime/LocalDate.kt"
 
-	if err := writeTestJar(jarPath, inner, "public class LocalDate\n"); err != nil {
+	if err := writeTestJar(jarPath, inner, "before\npublic class LocalDate\nafter\n"); err != nil {
 		t.Fatalf("write jar: %v", err)
 	}
 
@@ -39,12 +39,42 @@ func TestSearchAndCatIntegration(t *testing.T) {
 	}
 	fileID := fields[0]
 
-	catOut, err := runCommand(app, []string{"cat", fileID, "--project", projectDir, "--lines", "1,1"})
+	catOut, err := runCommand(app, []string{"cat", fileID, "--project", projectDir, "--lines", "2,2"})
 	if err != nil {
 		t.Fatalf("cat error: %v", err)
 	}
 	if strings.TrimSpace(catOut) != "public class LocalDate" {
 		t.Fatalf("unexpected cat output: %q", catOut)
+	}
+}
+
+func TestSearchContextAndPassThrough(t *testing.T) {
+	app := NewApp()
+	if _, err := app.Runner.LookPath("rg"); err != nil {
+		t.Skip("rg not available")
+	}
+
+	projectDir := filepath.Clean(filepath.Join("..", "..", "testdata", "fixture"))
+	jarPath := filepath.Join(t.TempDir(), "kotlinx-datetime-sources.jar")
+	inner := "kotlinx/datetime/LocalDate.kt"
+
+	if err := writeTestJar(jarPath, inner, "before\npublic class LocalDate\nafter\n"); err != nil {
+		t.Fatalf("write jar: %v", err)
+	}
+
+	t.Setenv("KSRC_TEST_JAR", jarPath)
+
+	ctxOut, err := runCommand(app, []string{"search", "org.jetbrains.kotlinx:kotlinx-datetime", "-q", "public class LocalDate", "--project", projectDir, "--context", "1"})
+	if err != nil {
+		t.Fatalf("search error: %v", err)
+	}
+	if !strings.Contains(ctxOut, " "+inner+":1:0:before") || !strings.Contains(ctxOut, " "+inner+":3:0:after") {
+		t.Fatalf("context lines missing: %s", ctxOut)
+	}
+
+	_, err = runCommand(app, []string{"search", "org.jetbrains.kotlinx:kotlinx-datetime", "-q", "public class LocalDate", "--project", projectDir, "--", "-g", "!*.kt"})
+	if err == nil {
+		t.Fatalf("expected pass-through args to filter matches")
 	}
 }
 

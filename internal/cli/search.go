@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/respawn-app/ksrc/internal/search"
@@ -14,18 +15,42 @@ func newSearchCmd(app *App) *cobra.Command {
 	var query string
 	var rgArgs string
 	var showExtractedPath bool
+	var contextLines int
 
 	cmd := &cobra.Command{
-		Use:     "search [<module>]",
+		Use:     "search [<module>] [-- <rg-args>]",
 		Aliases: []string{"rg"},
 		Short:   "Search dependency sources",
-		Args:    cobra.MaximumNArgs(1),
+		Args: func(cmd *cobra.Command, args []string) error {
+			dash := cmd.Flags().ArgsLenAtDash()
+			if dash == -1 {
+				return cobra.MaximumNArgs(1)(cmd, args)
+			}
+			if dash > 1 {
+				return fmt.Errorf("expected at most one <module> before --")
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) == 1 {
-				if flags.Module != "" && flags.Module != args[0] {
+			dash := cmd.Flags().ArgsLenAtDash()
+			var moduleArg string
+			var passArgs []string
+			if dash >= 0 {
+				if dash > len(args) {
+					dash = len(args)
+				}
+				if dash == 1 {
+					moduleArg = args[0]
+				}
+				passArgs = append(passArgs, args[dash:]...)
+			} else if len(args) == 1 {
+				moduleArg = args[0]
+			}
+			if moduleArg != "" {
+				if flags.Module != "" && flags.Module != moduleArg {
 					return fmt.Errorf("module specified twice (arg and --module). Use only one.")
 				}
-				flags.Module = args[0]
+				flags.Module = moduleArg
 			}
 			if err := requireModuleOrAll(flags.Module, flags.All); err != nil {
 				return err
@@ -41,10 +66,15 @@ func newSearchCmd(app *App) *cobra.Command {
 			if len(sources) == 0 {
 				return noSourcesErr(flags, noSourcesHintForFlags(flags))
 			}
+			rgExtra := splitCSV(rgArgs)
+			if contextLines > 0 {
+				rgExtra = append(rgExtra, "-C", strconv.Itoa(contextLines))
+			}
+			rgExtra = append(rgExtra, passArgs...)
 			matches, err := search.Run(ctx, app.Runner, search.Options{
 				Pattern: query,
 				Jars:    sources,
-				RGArgs:  splitCSV(rgArgs),
+				RGArgs:  rgExtra,
 				WorkDir: flags.Project,
 			})
 			if err != nil {
@@ -79,6 +109,7 @@ func newSearchCmd(app *App) *cobra.Command {
 	cmd.Flags().BoolVar(&flags.Refresh, "refresh", false, "refresh dependencies")
 	cmd.Flags().StringVar(&rgArgs, "rg-args", "", "extra args for rg (comma-separated)")
 	cmd.Flags().BoolVar(&showExtractedPath, "show-extracted-path", false, "include temp extracted path in output")
+	cmd.Flags().IntVar(&contextLines, "context", 0, "show N lines before/after matches (rg -C)")
 
 	return cmd
 }
