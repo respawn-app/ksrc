@@ -1,0 +1,106 @@
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Tag version (e.g. v1.2.3)"
+        required: true
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          check-latest: true
+
+      - name: Create tag (workflow dispatch)
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git rev-parse "$VERSION" >/dev/null 2>&1; then
+            echo "Tag $VERSION already exists"
+          else
+            git tag -a "$VERSION" -m "$VERSION"
+            git push origin "$VERSION"
+          fi
+
+      - name: Resolve tag
+        id: resolve_tag
+        env:
+          VERSION: ${{ inputs.version }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            echo "tag=$VERSION" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=$REF_NAME" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build changelog
+        id: changelog
+        env:
+          TAG: ${{ steps.resolve_tag.outputs.tag }}
+        run: |
+          prev_tag=$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || true)
+          if [ -n "$prev_tag" ]; then
+            range="${prev_tag}..${TAG}"
+          else
+            range="${TAG}"
+          fi
+          echo "## Changelog" > CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          git log "$range" --pretty=format:"- %s" >> CHANGELOG.md
+          if ! grep -q "-" CHANGELOG.md; then
+            echo "- No changes recorded" >> CHANGELOG.md
+          fi
+          echo "body<<EOF" >> "$GITHUB_OUTPUT"
+          cat CHANGELOG.md >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Build binaries
+        env:
+          TAG: ${{ steps.resolve_tag.outputs.tag }}
+        run: |
+          mkdir -p dist
+          for GOOS in darwin linux windows; do
+            for GOARCH in amd64 arm64; do
+              if [ "$GOOS" = "windows" ]; then
+                ext=".exe"
+              else
+                ext=""
+              fi
+              out="ksrc_${TAG#v}_${GOOS}_${GOARCH}"
+              env CGO_ENABLED=0 GOOS="$GOOS" GOARCH="$GOARCH" \
+                go build -o "dist/${out}${ext}" ./cmd/ksrc
+              if [ "$GOOS" = "windows" ]; then
+                (cd dist && zip "${out}.zip" "${out}${ext}")
+              else
+                (cd dist && tar -czf "${out}.tar.gz" "${out}${ext}")
+              fi
+              rm -f "dist/${out}${ext}"
+            done
+          done
+
+      - name: Create draft release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.resolve_tag.outputs.tag }}
+          name: ${{ steps.resolve_tag.outputs.tag }}
+          draft: true
+          body: ${{ steps.changelog.outputs.body }}
+          files: dist/*
