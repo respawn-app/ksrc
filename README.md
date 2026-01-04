@@ -11,7 +11,9 @@ Fast, one‑liner search and file read for Kotlin dependency sources without ope
 - Supports `cat`/`open` by file‑id or path with line slicing.
 
 ## Install
-TBD
+We currently publish standalone binaries via GitHub Releases. Download the appropriate archive for your OS/arch and place `ksrc` on your `PATH`.
+
+Install script: TBD
 
 ## Skills
 

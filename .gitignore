@@ -65,3 +65,6 @@ tmp/
 # Local skill installs (do not commit)
 .codex/
 .claude/
+
+# Local notes
+TODO.md
