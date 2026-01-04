@@ -227,8 +227,8 @@ When the module is specified without an explicit version:
 - Common cases:
   - `E_NO_PROJECT`: No Gradle project detected
   - `E_NO_DEPS`: No dependencies to resolve
-  - `E_NO_MODULE`: `<module>` omitted without `--all`
-  - `E_NO_SOURCES`: Sources not found and `--offline` set
+  - `E_NO_MODULE`: `<module>` omitted without `--all` (suggests `--all` or a module selector)
+  - `E_NO_SOURCES`: No sources resolved for the request (suggests `ksrc deps`, `ksrc fetch <coord>`, or rerunning without `--offline`)
   - `E_AMBIGUOUS`: Multiple modules match; requires `--module`
 
 ---

@@ -21,7 +21,7 @@ func newFetchCmd(app *App) *cobra.Command {
 				return err
 			}
 			if coord.Version == "" {
-				return fmt.Errorf("version required for fetch")
+				return fmt.Errorf("version required for fetch. Use group:artifact:version.")
 			}
 			flags.Module = coord.String()
 			flags.Version = coord.Version
@@ -31,7 +31,7 @@ func newFetchCmd(app *App) *cobra.Command {
 				return err
 			}
 			if len(sources) == 0 {
-				return fmt.Errorf("E_NO_SOURCES: no sources resolved")
+				return noSourcesErr(flags, "Try: verify the coordinate exists in the project or run ksrc deps to see resolved coords.")
 			}
 			for _, s := range sources {
 				if s.Coord.Group == coord.Group && s.Coord.Artifact == coord.Artifact && s.Coord.Version == coord.Version {

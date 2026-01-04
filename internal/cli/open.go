@@ -40,7 +40,7 @@ func newOpenCmd(app *App) *cobra.Command {
 					return err
 				}
 				if len(sources) == 0 {
-					return fmt.Errorf("E_NO_SOURCES: no sources resolved")
+					return noSourcesErr(flags, noSourcesHintForCoord(coord))
 				}
 				jarPath, err := findJarByCoord(sources, coord)
 				if err != nil {
@@ -52,14 +52,14 @@ func newOpenCmd(app *App) *cobra.Command {
 				}
 			} else {
 				if flags.Module == "" && flags.Group == "" && flags.Artifact == "" {
-					return fmt.Errorf("path requires --module or a file-id")
+					return fmt.Errorf("path requires --module or a file-id. Try: ksrc open <file-id> or ksrc open --module group:artifact[:version] <path>")
 				}
 				sources, _, err := resolveSources(context.Background(), app, flags, "", true, true)
 				if err != nil {
 					return err
 				}
 				if len(sources) == 0 {
-					return fmt.Errorf("E_NO_SOURCES: no sources resolved")
+					return noSourcesErr(flags, noSourcesHintForFlags(flags))
 				}
 				jarPath, inner, err := findFileInJars(sources, arg)
 				if err != nil {

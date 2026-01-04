@@ -22,7 +22,7 @@ func newSearchCmd(app *App) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 1 {
 				if flags.Module != "" && flags.Module != args[0] {
-					return fmt.Errorf("module specified twice (arg and --module)")
+					return fmt.Errorf("module specified twice (arg and --module). Use only one.")
 				}
 				flags.Module = args[0]
 			}
@@ -30,7 +30,7 @@ func newSearchCmd(app *App) *cobra.Command {
 				return err
 			}
 			if strings.TrimSpace(query) == "" {
-				return fmt.Errorf("query is required")
+				return fmt.Errorf("query is required. Try: ksrc search --all -q \"<pattern>\"")
 			}
 			ctx := context.Background()
 			sources, _, err := resolveSources(ctx, app, flags, "", true, true)
@@ -38,7 +38,7 @@ func newSearchCmd(app *App) *cobra.Command {
 				return err
 			}
 			if len(sources) == 0 {
-				return fmt.Errorf("E_NO_SOURCES: no sources resolved")
+				return noSourcesErr(flags, noSourcesHintForFlags(flags))
 			}
 			matches, err := search.Run(ctx, app.Runner, search.Options{
 				Pattern: query,

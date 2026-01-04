@@ -38,7 +38,7 @@ func newCatCmd(app *App) *cobra.Command {
 					return err
 				}
 				if len(sources) == 0 {
-					return fmt.Errorf("E_NO_SOURCES: no sources resolved")
+					return noSourcesErr(flags, noSourcesHintForCoord(coord))
 				}
 				jarPath, err := findJarByCoord(sources, coord)
 				if err != nil {
@@ -53,7 +53,7 @@ func newCatCmd(app *App) *cobra.Command {
 			}
 
 			if flags.Module == "" && flags.Group == "" && flags.Artifact == "" {
-				return fmt.Errorf("path requires --module or a file-id")
+				return fmt.Errorf("path requires --module or a file-id. Try: ksrc cat <file-id> or ksrc cat --module group:artifact[:version] <path>")
 			}
 
 			sources, _, err := resolveSources(context.Background(), app, flags, "", true, true)
@@ -61,7 +61,7 @@ func newCatCmd(app *App) *cobra.Command {
 				return err
 			}
 			if len(sources) == 0 {
-				return fmt.Errorf("E_NO_SOURCES: no sources resolved")
+				return noSourcesErr(flags, noSourcesHintForFlags(flags))
 			}
 			jarPath, inner, err := findFileInJars(sources, arg)
 			if err != nil {
@@ -98,7 +98,7 @@ func findJarByCoord(sources []resolve.SourceJar, coord resolve.Coord) (string, e
 			return s.Path, nil
 		}
 	}
-	return "", fmt.Errorf("source jar not found for %s", coord.String())
+	return "", fmt.Errorf("source jar not found for %s. Try: ksrc fetch %s", coord.String(), coord.String())
 }
 
 func findFileInJars(sources []resolve.SourceJar, inner string) (string, string, error) {
@@ -109,5 +109,5 @@ func findFileInJars(sources []resolve.SourceJar, inner string) (string, string, 
 			return s.Path, inner, nil
 		}
 	}
-	return "", "", fmt.Errorf("file not found in resolved sources: %s", inner)
+	return "", "", fmt.Errorf("file not found in resolved sources: %s. Try: ksrc search --module group:artifact -q \"<pattern>\" to get a file-id", inner)
 }
