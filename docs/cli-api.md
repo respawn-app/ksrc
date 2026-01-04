@@ -207,6 +207,7 @@ When the module is specified without an explicit version:
 
 ### Temporary Files
 - `/tmp` (or system temp) may be used for transient extraction to support `cat --lines`.
+- `/tmp` (or system temp) may be used for transient extraction to enable `search` over source JARs.
 - Temp files are deleted after command completion.
 
 ---
