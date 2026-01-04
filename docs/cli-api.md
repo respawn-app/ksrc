@@ -50,7 +50,7 @@ Search dependency sources for a target module or group.
 ```
 ksrc search [<module>] -q <pattern> [flags] [-- <rg-args>]
 ```
-`<module>` is required unless `--all` is provided.
+`<module>` is required unless `--all` is provided. Supports glob patterns (same as `--module`).
 
 **Key Flags**
 - `--project <path>`: Project root (default: `.`)

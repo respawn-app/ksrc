@@ -78,6 +78,31 @@ func TestSearchContextAndPassThrough(t *testing.T) {
 	}
 }
 
+func TestSearchModuleGlobArg(t *testing.T) {
+	app := NewApp()
+	if _, err := app.Runner.LookPath("rg"); err != nil {
+		t.Skip("rg not available")
+	}
+
+	projectDir := filepath.Clean(filepath.Join("..", "..", "testdata", "fixture"))
+	jarPath := filepath.Join(t.TempDir(), "kotlinx-datetime-sources.jar")
+	inner := "kotlinx/datetime/LocalDate.kt"
+
+	if err := writeTestJar(jarPath, inner, "public class LocalDate\n"); err != nil {
+		t.Fatalf("write jar: %v", err)
+	}
+
+	t.Setenv("KSRC_TEST_JAR", jarPath)
+
+	out, err := runCommand(app, []string{"search", "*datetime*", "-q", "public class LocalDate", "--project", projectDir})
+	if err != nil {
+		t.Fatalf("search error: %v", err)
+	}
+	if !strings.Contains(out, "org.jetbrains.kotlinx:kotlinx-datetime:0.6.1!/"+inner) {
+		t.Fatalf("unexpected search output: %s", out)
+	}
+}
+
 func writeTestJar(path, inner, content string) error {
 	f, err := os.Create(path)
 	if err != nil {
