@@ -19,6 +19,7 @@ This repo hosts a Claude Code plugin marketplace so anyone can install the `ksrc
 ```
 
 Marketplace repo: `respawn-app/claude-plugin-marketplace`
+Plugin source: `respawn-app/ksrc` (via marketplace `source` -> `github`).
 
 Keep the plugin skill in sync with the source of truth:
 ```
