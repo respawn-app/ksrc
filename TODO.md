@@ -1,7 +1,0 @@
-- CI setup with autobuild 
-- brew publishing 
-- windows compat 
-- gradle plugin (optional for dep resolution only, will talk to the cli)
-- readme
-- Publish the locally-made .skill file to somewhere
-- CI (need to intall java, gradle, go, run tests, lint)
