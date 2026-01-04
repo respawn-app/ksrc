@@ -32,6 +32,7 @@
 - Resolution changes: keep init script minimal and compatible with multiple Gradle versions.
 - Search changes: must keep `rg` call scoped to resolved JARs only.
 - Cat changes: must support `<file-id>` and `--lines start:end`.
+- After code changes, rebuild the binary to `./bin/ksrc` so the symlinked CLI updates.
 
 ## Tests
 - Unit: parsing, version selection, file‑id handling.
