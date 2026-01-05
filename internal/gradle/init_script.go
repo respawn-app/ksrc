@@ -80,66 +80,85 @@ gradle.rootProject { root ->
     def targets = splitCsv(targetsProp as String)
     def subprojects = splitCsv(subprojectsProp as String)
 
-    root.tasks.register('ksrcSources') {
-        doLast {
-            def rootProject = project.rootProject
-            def projects = subprojects.isEmpty() ? rootProject.allprojects : rootProject.allprojects.findAll { p ->
-                subprojects.any { isSelectedProject(it as String, p.path, p.name) }
-            }
+    def selectedProjects = subprojects.isEmpty() ? root.allprojects : root.allprojects.findAll { p ->
+        subprojects.any { isSelectedProject(it as String, p.path, p.name) }
+    }
 
-            def selectedConfigs = []
-            if (!depProp) {
-                projects.each { p ->
-                    p.configurations.each { cfg ->
-                        if (!cfg.canBeResolved) return
-                        if (!configs.isEmpty()) {
-                            if (configs.contains(cfg.name)) selectedConfigs << cfg
-                        } else {
-                            if (matchesTargets(cfg.name, targets) && matchesScope(cfg.name, scopeProp as String)) selectedConfigs << cfg
-                        }
-                    }
-                }
-            } else {
-                def dep = rootProject.dependencies.create(depProp as String)
-                def detached = rootProject.configurations.detachedConfiguration(dep)
-                detached.transitive = false
-                selectedConfigs << detached
-            }
-
-            def moduleIds = [] as Set
-            selectedConfigs.each { cfg ->
-                cfg.incoming.resolutionResult.allComponents.each { comp ->
-                    def id = comp.id
-                    if (id instanceof ModuleComponentIdentifier) moduleIds << id
+    def emitForProject = { proj ->
+        def selectedConfigs = []
+        if (!depProp) {
+            proj.configurations.each { cfg ->
+                if (!cfg.canBeResolved) return
+                if (!configs.isEmpty()) {
+                    if (configs.contains(cfg.name)) selectedConfigs << cfg
+                } else {
+                    if (matchesTargets(cfg.name, targets) && matchesScope(cfg.name, scopeProp as String)) selectedConfigs << cfg
                 }
             }
+        } else {
+            def dep = proj.dependencies.create(depProp as String)
+            def detached = proj.configurations.detachedConfiguration(dep)
+            detached.transitive = false
+            selectedConfigs << detached
+        }
 
-            def filteredIds = moduleIds.findAll { id ->
-                matchesModule(moduleProp as String, id.group, id.module, id.version) &&
-                matchesGlob(groupProp as String, id.group) &&
-                matchesGlob(artifactProp as String, id.module) &&
-                matchesGlob(versionProp as String, id.version)
-            }
-
-            filteredIds.each { id ->
-                println "KSRCDEP|${id.group}:${id.module}:${id.version}"
-            }
-
-            if (filteredIds.isEmpty()) return
-
-            def sourceDeps = filteredIds.collect { id ->
-                rootProject.dependencies.create([group: id.group, name: id.module, version: id.version, classifier: 'sources'])
-            }
-            if (sourceDeps.isEmpty()) return
-
-            def sourcesCfg = rootProject.configurations.detachedConfiguration(*sourceDeps)
-            sourcesCfg.transitive = false
-            def lenient = sourcesCfg.resolvedConfiguration.lenientConfiguration
-            lenient.artifacts.each { art ->
-                def id = art.moduleVersion.id
-                println "KSRC|${id.group}:${id.name}:${id.version}|${art.file.absolutePath}"
+        def moduleIds = [] as Set
+        selectedConfigs.each { cfg ->
+            cfg.incoming.resolutionResult.allComponents.each { comp ->
+                def id = comp.id
+                if (id instanceof ModuleComponentIdentifier) moduleIds << id
             }
         }
+
+        def filteredIds = moduleIds.findAll { id ->
+            matchesModule(moduleProp as String, id.group, id.module, id.version) &&
+            matchesGlob(groupProp as String, id.group) &&
+            matchesGlob(artifactProp as String, id.module) &&
+            matchesGlob(versionProp as String, id.version)
+        }
+
+        filteredIds.each { id ->
+            println "KSRCDEP|${id.group}:${id.module}:${id.version}"
+        }
+
+        if (filteredIds.isEmpty()) return
+
+        def sourceDeps = filteredIds.collect { id ->
+            proj.dependencies.create([group: id.group, name: id.module, version: id.version, classifier: 'sources'])
+        }
+        if (sourceDeps.isEmpty()) return
+
+        def sourcesCfg = proj.configurations.detachedConfiguration(*sourceDeps)
+        sourcesCfg.transitive = false
+        def lenient = sourcesCfg.resolvedConfiguration.lenientConfiguration
+        lenient.artifacts.each { art ->
+            def id = art.moduleVersion.id
+            println "KSRC|${id.group}:${id.name}:${id.version}|${art.file.absolutePath}"
+        }
+    }
+
+    if (depProp) {
+        root.tasks.register('ksrcSources') {
+            doLast {
+                emitForProject(project)
+            }
+        }
+        return
+    }
+
+    def projectTasks = []
+    selectedProjects.each { p ->
+        def projectRef = p
+        projectRef.tasks.register('ksrcSourcesProject') {
+            doLast {
+                emitForProject(projectRef)
+            }
+        }
+        projectTasks << projectRef.tasks.named('ksrcSourcesProject')
+    }
+
+    root.tasks.register('ksrcSources') {
+        dependsOn(projectTasks)
     }
 }
 `
