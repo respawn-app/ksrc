@@ -4,14 +4,14 @@
   "trim_values" : true,
   "categories" : [
     {
-      "title" : "## 🚀 New Features",
+      "title" : "## New Features",
       "labels" : [
         "feat",
         "feature"
       ]
     },
     {
-      "title" : "## 🧨 Api Changes",
+      "title" : "## Api Changes",
       "labels" : [
         "feat!",
         "breaking",
@@ -19,18 +19,18 @@
       ]
     },
     {
-      "title" : "## 🐞 Bug Fixes",
+      "title" : "## Bug Fixes",
       "labels" : [
         "fix",
         "bug"
       ]
     },
     {
-      "title" : "## ❔ Other",
+      "title" : "## Other",
       "labels" : []
     },
     {
-      "title" : "## 📚 Docs",
+      "title" : "## Docs",
       "labels" : [
         "doc",
         "docs"
