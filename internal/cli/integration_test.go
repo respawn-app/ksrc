@@ -68,7 +68,8 @@ func TestSearchContextAndPassThrough(t *testing.T) {
 	if err != nil {
 		t.Fatalf("search error: %v", err)
 	}
-	if !strings.Contains(ctxOut, " "+inner+":1:0:before") || !strings.Contains(ctxOut, " "+inner+":3:0:after") {
+	fileID := "org.jetbrains.kotlinx:kotlinx-datetime:0.6.1!/" + inner
+	if !strings.Contains(ctxOut, fileID+" 1:0:before") || !strings.Contains(ctxOut, fileID+" 3:0:after") {
 		t.Fatalf("context lines missing: %s", ctxOut)
 	}
 

@@ -81,14 +81,11 @@ func newSearchCmd(app *App) *cobra.Command {
 				return err
 			}
 			for _, m := range matches {
-				path := m.File
-				if !showExtractedPath {
-					path = fileIDInnerPath(m.FileID)
-					if path == "" {
-						path = "<src>"
-					}
+				if showExtractedPath {
+					fmt.Fprintf(cmd.OutOrStdout(), "%s %s:%d:%d:%s\n", m.FileID, m.File, m.Line, m.Column, m.Text)
+					continue
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "%s %s:%d:%d:%s\n", m.FileID, path, m.Line, m.Column, m.Text)
+				fmt.Fprintf(cmd.OutOrStdout(), "%s %d:%d:%s\n", m.FileID, m.Line, m.Column, m.Text)
 			}
 			return nil
 		},
@@ -112,12 +109,4 @@ func newSearchCmd(app *App) *cobra.Command {
 	cmd.Flags().IntVar(&contextLines, "context", 0, "show N lines before/after matches (rg -C)")
 
 	return cmd
-}
-
-func fileIDInnerPath(fileID string) string {
-	parts := strings.SplitN(fileID, "!/", 2)
-	if len(parts) != 2 {
-		return ""
-	}
-	return parts[1]
 }
