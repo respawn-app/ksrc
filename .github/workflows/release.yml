@@ -53,24 +53,10 @@ jobs:
 
       - name: Build changelog
         id: changelog
-        env:
-          TAG: ${{ steps.resolve_tag.outputs.tag }}
-        run: |
-          prev_tag=$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || true)
-          if [ -n "$prev_tag" ]; then
-            range="${prev_tag}..${TAG}"
-          else
-            range="${TAG}"
-          fi
-          echo "## Changelog" > CHANGELOG.md
-          echo "" >> CHANGELOG.md
-          git log "$range" --pretty=format:"- %s" >> CHANGELOG.md
-          if ! grep -q "-" CHANGELOG.md; then
-            echo "- No changes recorded" >> CHANGELOG.md
-          fi
-          echo "body<<EOF" >> "$GITHUB_OUTPUT"
-          cat CHANGELOG.md >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+        uses: mikepenz/release-changelog-builder-action@v6
+        with:
+          commitMode: true
+          configuration: ".github/changelog_config.json"
 
       - name: Build binaries
         env:
@@ -102,5 +88,5 @@ jobs:
           tag_name: ${{ steps.resolve_tag.outputs.tag }}
           name: ${{ steps.resolve_tag.outputs.tag }}
           draft: true
-          body: ${{ steps.changelog.outputs.body }}
+          body: ${{ steps.changelog.outputs.changelog }}
           files: dist/*
