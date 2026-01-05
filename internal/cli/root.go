@@ -6,9 +6,9 @@ import (
 
 func NewRootCommand(app *App) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:          "ksrc",
-		Short:        "Kotlin dependency source search",
-		SilenceUsage: true,
+		Use:           "ksrc",
+		Short:         "Kotlin dependency source search",
+		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
 
