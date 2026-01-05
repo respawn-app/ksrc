@@ -31,7 +31,7 @@ Common flags:
 - `--show-extracted-path` include temp extracted paths in output (off by default)
 
 Output format:
-`<file-id> <inner-path>:<line>:<col>:<match>` (use `--show-extracted-path` for temp paths)
+`<file-id> <line>:<col>:<match>` (use `--show-extracted-path` for temp paths)
 
 ### `ksrc cat <file-id|path>`
 Print file contents.

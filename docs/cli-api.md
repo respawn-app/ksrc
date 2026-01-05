@@ -73,7 +73,7 @@ ksrc search [<module>] -q <pattern> [flags] [-- <rg-args>]
 - `--emit-id <always|auto|never>`: Include file identifiers (default: `always`)
 
 **Output (default)**
-`<file-id> <inner-path>:<line>:<col>:<match>` (rg‑compatible with leading file id; use `--show-extracted-path` for temp paths)
+`<file-id> <line>:<col>:<match>` (use `--show-extracted-path` to include temp paths)
 
 **Aliases**
 - `ksrc rg` is an alias of `ksrc search`
