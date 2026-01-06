@@ -15,6 +15,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      tag: ${{ steps.resolve_tag.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -90,3 +92,29 @@ jobs:
           draft: true
           body: ${{ steps.changelog.outputs.changelog }}
           files: dist/*
+
+  update_brew_tap:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/checkout@v4
+        with:
+          repository: respawn-app/homebrew-tap
+          path: homebrew-tap
+          token: ${{ secrets.RESPAWN_BREW_TAP_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git -C homebrew-tap config user.name "github-actions[bot]"
+          git -C homebrew-tap config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Update tap formula
+        env:
+          KSRC_VERSION: ${{ needs.release.outputs.tag }}
+        run: scripts/update-brew-tap.sh --tap "$GITHUB_WORKSPACE/homebrew-tap" --push

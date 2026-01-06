@@ -16,7 +16,14 @@ With Kotlin/Gradle, agents have to take a 15-step journey to download, locate, u
 
 ## Install
 
-We currently publish standalone binaries via GitHub Releases. (Brew and other packages in progress ⚙️)
+Homebrew (macOS/Linux):
+
+```
+brew tap respawn-app/tap
+brew install ksrc
+```
+
+Standalone binaries via GitHub Releases:
 
 Install script (macOS/Linux):
 
