@@ -1,46 +1,56 @@
 # ksrc
 
-## Benefit
-Fast, one‑liner search and file read for Kotlin dependency sources without opening IDEs or vendoring sources. `ksrc` resolves dependency versions from your Gradle project, ensures source JARs are present in Gradle caches, and lets you search/read those sources directly.
+**One‑liner search and read for Kotlin 3rd-party dependency sources for AI agents.**
+
+Your AI agents take ~10 steps just to see a single Kotlin function's signature in a third-party library. `ksrc` turns that into two commands and ~4x less tokens.
 
 ## What it is
-`ksrc` is a CLI that:
-- Resolves project dependencies via Gradle (prefers project‑resolved versions).
-- Locates/ensures source JARs in Gradle caches (no repo mutation).
-- Runs `rg --search-zip` over source JARs and emits stable file‑ids.
-- Supports `cat`/`open` by file‑id or path with line slicing.
+
+It's a CLI utility to enable efficient source code search for AI agents working with Kotlin.
+
+Ever saw an AI agent find a function's signature in TypeScript/Python? Simple `rg` over `node_modules` and a `sed` call is all it needs to discover APIs and
+signatures.
+
+With Kotlin/Gradle, agents have to take a 15-step journey to download, locate, unpack and ripgrep source jars.
+`ksrc` turns 16k tokens wasted on that into 2 CLI commands.
 
 ## Install
-We currently publish standalone binaries via GitHub Releases.
+
+We currently publish standalone binaries via GitHub Releases. (Brew and other packages in progress ⚙️)
 
 Install script (macOS/Linux):
+
 ```
 curl -fsSL https://raw.githubusercontent.com/respawn-app/ksrc/main/scripts/install.sh | sh
 ```
 
-Optional version:
-```
-curl -fsSL https://raw.githubusercontent.com/respawn-app/ksrc/main/scripts/install.sh | sh -s -- --version vX.Y.Z
-```
-
 Manual install: download the appropriate archive for your OS/arch and place `ksrc` on your `PATH`.
 
-## Skills
+Next up, install the claude code plugin/skill, to let your agents know they can use `ksrc` and how to use it.
 
 ### Claude Code plugin
+
 Add the Respawn marketplace, then install the plugin:
+
 ```
 /plugin marketplace add respawn-app/claude-plugin-marketplace
 /plugin install ksrc@respawn-tools
 ```
 
 ### Codex skill
+
 Install from the public GitHub path:
+
 ```
 $skill-installer install https://github.com/respawn-app/ksrc/tree/main/skills/ksrc
 ```
 
+### AGENTS.md prompt
+
+> Use `ksrc` bash command to discover Kotlin/gradle library dependency sources. Start with `ksrc --help`.
+
 ## License
+
 This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License.
 
 See `LICENSE.txt`.
