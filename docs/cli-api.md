@@ -250,7 +250,7 @@ When `--config` is not provided, resolve **all main compile classpaths** across 
 - `commonMainCompileClasspath` (if present)
 - `<target>MainCompileClasspath` for all detected KMP targets
 
-If no sources are found, ksrc progressively retries with broader scopes (e.g., Android `*DebugCompileClasspath`) before returning `E_NO_SOURCES`.
+If no sources are found, ksrc progressively retries with broader scopes (e.g., Android `*debugCompileClasspath`) before returning `E_NO_SOURCES`.
 
 `--subproject`, `--targets`, and `--config` let callers narrow or expand the scope.
 

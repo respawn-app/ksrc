@@ -125,22 +125,22 @@ func buildResolveAttempts(opts gradle.ResolveOptions, flags ResolveFlags) []reso
 	}
 	switch opts.Scope {
 	case "compile":
-		debugPattern := "*DebugCompileClasspath"
+		debugPatterns := []string{"*debugCompileClasspath", "*DebugCompileClasspath"}
 		attempt := opts
-		attempt.Configs = []string{debugPattern}
+		attempt.Configs = debugPatterns
 		attempts = append(attempts, resolveAttempt{
 			Options:        attempt,
-			Label:          "config:" + debugPattern,
-			ConfigPatterns: []string{debugPattern},
+			Label:          "config:" + strings.Join(debugPatterns, ","),
+			ConfigPatterns: debugPatterns,
 		})
 	case "runtime":
-		debugPattern := "*DebugRuntimeClasspath"
+		debugPatterns := []string{"*debugRuntimeClasspath", "*DebugRuntimeClasspath"}
 		attempt := opts
-		attempt.Configs = []string{debugPattern}
+		attempt.Configs = debugPatterns
 		attempts = append(attempts, resolveAttempt{
 			Options:        attempt,
-			Label:          "config:" + debugPattern,
-			ConfigPatterns: []string{debugPattern},
+			Label:          "config:" + strings.Join(debugPatterns, ","),
+			ConfigPatterns: debugPatterns,
 		})
 	}
 	return attempts
@@ -167,8 +167,8 @@ func projectHint(flags ResolveFlags, meta ResolveMeta) string {
 	if hints.HasIncludeBuilds {
 		parts = append(parts, fmt.Sprintf("Composite build detected; try: --project %s", hints.IncludeBuildHint))
 	}
-	if hints.Android && !metaHasConfig(meta, "*DebugCompileClasspath") && strings.TrimSpace(flags.Config) == "" {
-		parts = append(parts, "Android detected; try: --config \"*DebugCompileClasspath\" (or --config debugCompileClasspath)")
+	if hints.Android && !metaHasConfig(meta, "*debugCompileClasspath") && !metaHasConfig(meta, "*DebugCompileClasspath") && strings.TrimSpace(flags.Config) == "" {
+		parts = append(parts, "Android detected; try: --config \"*debugCompileClasspath\" (or --config debugCompileClasspath)")
 	}
 	if hints.KMP && strings.TrimSpace(flags.Targets) == "" {
 		parts = append(parts, "KMP detected; try: --targets jvm (or another target)")
