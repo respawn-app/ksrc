@@ -12,18 +12,20 @@ import (
 )
 
 type ResolveOptions struct {
-	ProjectDir  string
-	Module      string
-	Group       string
-	Artifact    string
-	Version     string
-	Scope       string
-	Configs     []string
-	Targets     []string
-	Subprojects []string
-	Dep         string
-	Offline     bool
-	Refresh     bool
+	ProjectDir      string
+	ProjectPath     string
+	Module          string
+	Group           string
+	Artifact        string
+	Version         string
+	Scope           string
+	Configs         []string
+	Targets         []string
+	Subprojects     []string
+	Dep             string
+	Offline         bool
+	Refresh         bool
+	IncludeBuildSrc bool
 }
 
 type ResolveResult struct {
@@ -32,6 +34,30 @@ type ResolveResult struct {
 }
 
 func Resolve(ctx context.Context, runner executil.Runner, opts ResolveOptions) (ResolveResult, error) {
+	result, err := resolveOnce(ctx, runner, opts)
+	if err != nil {
+		return ResolveResult{}, err
+	}
+
+	if !opts.IncludeBuildSrc {
+		return result, nil
+	}
+
+	buildSrcDir := filepath.Join(opts.ProjectDir, "buildSrc")
+	if shouldResolveBuildSrc(buildSrcDir, opts.ProjectDir, opts.ProjectPath) {
+		buildSrcOpts := opts
+		buildSrcOpts.ProjectPath = buildSrcDir
+		buildSrcOpts.Subprojects = nil
+		buildSrcRes, err := resolveOnce(ctx, runner, buildSrcOpts)
+		if err != nil {
+			return ResolveResult{}, err
+		}
+		result = mergeResults(result, buildSrcRes)
+	}
+	return result, nil
+}
+
+func resolveOnce(ctx context.Context, runner executil.Runner, opts ResolveOptions) (ResolveResult, error) {
 	scriptPath, cleanup, err := writeInitScript()
 	if err != nil {
 		return ResolveResult{}, err
@@ -44,6 +70,9 @@ func Resolve(ctx context.Context, runner executil.Runner, opts ResolveOptions) (
 	}
 
 	args := []string{"-I", scriptPath, "-Dorg.gradle.console=plain", "--info", "--no-configuration-cache"}
+	if opts.ProjectPath != "" {
+		args = append(args, "-p", opts.ProjectPath)
+	}
 	if opts.Offline {
 		args = append(args, "--offline")
 	}
@@ -87,6 +116,80 @@ func Resolve(ctx context.Context, runner executil.Runner, opts ResolveOptions) (
 		}
 	}
 	return result, nil
+}
+
+func shouldResolveBuildSrc(buildSrcDir string, projectDir string, projectPath string) bool {
+	if projectDir != "" && samePath(buildSrcDir, projectDir) {
+		return false
+	}
+	if projectPath != "" && samePath(buildSrcDir, projectPath) {
+		return false
+	}
+	info, err := os.Stat(buildSrcDir)
+	if err != nil || !info.IsDir() {
+		return false
+	}
+	if hasGradleBuildFile(buildSrcDir) {
+		return true
+	}
+	return false
+}
+
+func hasGradleBuildFile(dir string) bool {
+	if _, err := os.Stat(filepath.Join(dir, "build.gradle")); err == nil {
+		return true
+	}
+	if _, err := os.Stat(filepath.Join(dir, "build.gradle.kts")); err == nil {
+		return true
+	}
+	if _, err := os.Stat(filepath.Join(dir, "settings.gradle")); err == nil {
+		return true
+	}
+	if _, err := os.Stat(filepath.Join(dir, "settings.gradle.kts")); err == nil {
+		return true
+	}
+	return false
+}
+
+func samePath(a string, b string) bool {
+	aAbs, errA := filepath.Abs(a)
+	bAbs, errB := filepath.Abs(b)
+	if errA == nil && errB == nil {
+		return aAbs == bAbs
+	}
+	return filepath.Clean(a) == filepath.Clean(b)
+}
+
+func mergeResults(base ResolveResult, extra ResolveResult) ResolveResult {
+	if len(extra.Sources) == 0 && len(extra.Deps) == 0 {
+		return base
+	}
+	seenSources := make(map[string]struct{}, len(base.Sources))
+	for _, s := range base.Sources {
+		seenSources[s.Coord.String()+"|"+s.Path] = struct{}{}
+	}
+	for _, s := range extra.Sources {
+		key := s.Coord.String() + "|" + s.Path
+		if _, ok := seenSources[key]; ok {
+			continue
+		}
+		seenSources[key] = struct{}{}
+		base.Sources = append(base.Sources, s)
+	}
+
+	seenDeps := make(map[string]struct{}, len(base.Deps))
+	for _, d := range base.Deps {
+		seenDeps[d.String()] = struct{}{}
+	}
+	for _, d := range extra.Deps {
+		key := d.String()
+		if _, ok := seenDeps[key]; ok {
+			continue
+		}
+		seenDeps[key] = struct{}{}
+		base.Deps = append(base.Deps, d)
+	}
+	return base
 }
 
 func buildProps(opts ResolveOptions) []string {

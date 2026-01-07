@@ -63,6 +63,7 @@ ksrc search [<module>] -q <pattern> [flags] [-- <rg-args>]
 - `--artifact <glob>`: Filter by artifact
 - `--version <glob>`: Filter by version
 - `--scope <compile|runtime|test|all>`: Dependency scope (default: `compile`)
+- `--buildsrc`: Include buildSrc dependencies (default: `true`; set `--buildsrc=false` to disable)
 - `--refresh`: Re‑resolve and re‑download sources
 - `--offline`: Only use cached sources, error if missing
 - `--context <n>`: Show N lines before/after matches (rg `-C`)
@@ -95,6 +96,7 @@ ksrc cat <file-id|path> [flags]
 **Flags**
 - `--project <path>`
 - `--module <glob>` (disambiguate)
+- `--buildsrc`: Include buildSrc dependencies (default: `true`; set `--buildsrc=false` to disable)
 - `--lines <start,end>`: Output a line range (1‑based, inclusive; sed‑style)
 
 ---
@@ -107,6 +109,12 @@ Open a file in `$PAGER` (defaults to `less -R`).
 ksrc open <path> [flags]
 ```
 
+**Flags**
+- `--project <path>`
+- `--module <glob>` (disambiguate)
+- `--buildsrc`: Include buildSrc dependencies (default: `true`; set `--buildsrc=false` to disable)
+- `--lines <start,end>`: Output a line range (1‑based, inclusive; sed‑style)
+
 ---
 
 ### `ksrc deps`
@@ -116,6 +124,16 @@ List resolved dependencies and source availability.
 ```
 ksrc deps [flags]
 ```
+
+**Flags**
+- `--project <path>`
+- `--scope <compile|runtime|test|all>`
+- `--config <name>` (comma‑separated)
+- `--targets <list>` (comma‑separated)
+- `--subproject <name>` (repeatable)
+- `--offline`
+- `--refresh`
+- `--buildsrc`: Include buildSrc dependencies (default: `true`; set `--buildsrc=false` to disable)
 
 **Output (default)**
 `group:artifact:version  [sources: yes|no]  [path: <gradle cache path>]`
@@ -133,6 +151,7 @@ ksrc fetch org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1
 **Flags**
 - `--project <path>` (optional, if resolving via project)
 - `--refresh`
+- `--buildsrc`: Include buildSrc dependencies (default: `true`; set `--buildsrc=false` to disable)
 
 ---
 
@@ -145,6 +164,11 @@ ksrc where org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1
 ksrc where org/jetbrains/kotlinx/coroutines/flow/Flow.kt
 ```
 
+**Flags**
+- `--project <path>`
+- `--module <glob>` (disambiguate)
+- `--buildsrc`: Include buildSrc dependencies (default: `true`; set `--buildsrc=false` to disable)
+
 ---
 
 ### `ksrc resolve`
@@ -154,6 +178,20 @@ Resolve the dependency graph without search. No project files are modified.
 ```
 ksrc resolve [flags]
 ```
+
+**Flags**
+- `--project <path>`
+- `--module <glob>`
+- `--group <glob>`
+- `--artifact <glob>`
+- `--version <glob>`
+- `--scope <compile|runtime|test|all>`
+- `--config <name>` (comma‑separated)
+- `--targets <list>` (comma‑separated)
+- `--subproject <name>` (repeatable)
+- `--offline`
+- `--refresh`
+- `--buildsrc`: Include buildSrc dependencies (default: `true`; set `--buildsrc=false` to disable)
 
 ---
 
@@ -182,6 +220,7 @@ Diagnostics for project detection, Gradle cache accessibility, and source availa
 - Must be deterministic and reproducible.
 - Does **not** modify project files.
 - Uses Gradle to resolve and download source artifacts.
+- Includes `buildSrc` dependencies by default when `buildSrc/` is a Gradle build.
 
 ### Resolution Mechanism
 - Default runner: project Gradle wrapper (`./gradlew`); fallback: `gradle` on PATH.

@@ -104,6 +104,7 @@ func newSearchCmd(app *App) *cobra.Command {
 	cmd.Flags().StringSliceVar(&flags.Subprojects, "subproject", nil, "limit to subproject (repeatable)")
 	cmd.Flags().BoolVar(&flags.Offline, "offline", false, "offline mode")
 	cmd.Flags().BoolVar(&flags.Refresh, "refresh", false, "refresh dependencies")
+	cmd.Flags().BoolVar(&flags.IncludeBuildSrc, "buildsrc", true, "include buildSrc dependencies (set --buildsrc=false to disable)")
 	cmd.Flags().StringVar(&rgArgs, "rg-args", "", "extra args for rg (comma-separated)")
 	cmd.Flags().BoolVar(&showExtractedPath, "show-extracted-path", false, "include temp extracted path in output")
 	cmd.Flags().IntVar(&contextLines, "context", 0, "show N lines before/after matches (rg -C)")

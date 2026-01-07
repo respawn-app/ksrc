@@ -16,6 +16,7 @@
 - One‑liner UX: `ksrc search <module> -q <pattern>` and `ksrc cat <file-id>`.
 - Deterministic resolution: prefer project‑resolved versions; only fall back to cache‑latest if absent.
 - Keep output stable and parseable.
+- Include `buildSrc` dependencies by default (disable with `--buildsrc=false`).
 
 ## Directory / Module Structure (planned)
 - `cmd/` — CLI entry points and wiring

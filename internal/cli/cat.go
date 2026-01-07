@@ -87,6 +87,7 @@ func newCatCmd(app *App) *cobra.Command {
 	cmd.Flags().StringSliceVar(&flags.Subprojects, "subproject", nil, "limit to subproject (repeatable)")
 	cmd.Flags().BoolVar(&flags.Offline, "offline", false, "offline mode")
 	cmd.Flags().BoolVar(&flags.Refresh, "refresh", false, "refresh dependencies")
+	cmd.Flags().BoolVar(&flags.IncludeBuildSrc, "buildsrc", true, "include buildSrc dependencies (set --buildsrc=false to disable)")
 	cmd.Flags().StringVar(&lines, "lines", "", "line range (start,end)")
 
 	return cmd

@@ -45,6 +45,7 @@ func newFetchCmd(app *App) *cobra.Command {
 	cmd.Flags().StringVar(&flags.Project, "project", ".", "project root")
 	cmd.Flags().BoolVar(&flags.Offline, "offline", false, "offline mode")
 	cmd.Flags().BoolVar(&flags.Refresh, "refresh", false, "refresh dependencies")
+	cmd.Flags().BoolVar(&flags.IncludeBuildSrc, "buildsrc", true, "include buildSrc dependencies (set --buildsrc=false to disable)")
 
 	return cmd
 }
