@@ -25,6 +25,10 @@ func resolveSources(ctx context.Context, app *App, flags ResolveFlags, dep strin
 	meta := ResolveMeta{}
 	attempts := buildResolveAttempts(opts, flags)
 	var lastDeps []resolve.Coord
+	var mergedSources []resolve.SourceJar
+	var mergedDeps []resolve.Coord
+	seenSources := make(map[string]struct{})
+	seenDeps := make(map[string]struct{})
 	for _, attempt := range attempts {
 		res, err := gradle.Resolve(ctx, app.Runner, attempt.Options)
 		if err != nil {
@@ -37,12 +41,20 @@ func resolveSources(ctx context.Context, app *App, flags ResolveFlags, dep strin
 		if applyFilters {
 			sources = resolve.FilterSources(sources, flags.Module, flags.Group, flags.Artifact, flags.Version)
 		}
+		if flags.All {
+			mergeSources(&mergedSources, seenSources, sources)
+			mergeDeps(&mergedDeps, seenDeps, res.Deps)
+			continue
+		}
 		if len(sources) > 0 || (!applyFilters && len(res.Deps) > 0) {
 			return sources, res.Deps, meta, nil
 		}
 	}
 
 	var sources []resolve.SourceJar
+	if flags.All && (len(mergedSources) > 0 || (!applyFilters && len(mergedDeps) > 0)) {
+		return mergedSources, mergedDeps, meta, nil
+	}
 	if allowCacheFallback {
 		if coord, ok := resolve.SelectorToCoord(flags.Module, flags.Group, flags.Artifact, flags.Version); ok {
 			if coord.Version == "" {
@@ -187,4 +199,26 @@ func metaHasConfig(meta ResolveMeta, pattern string) bool {
 		}
 	}
 	return false
+}
+
+func mergeSources(dest *[]resolve.SourceJar, seen map[string]struct{}, sources []resolve.SourceJar) {
+	for _, s := range sources {
+		key := s.Coord.String() + "|" + s.Path
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		*dest = append(*dest, s)
+	}
+}
+
+func mergeDeps(dest *[]resolve.Coord, seen map[string]struct{}, deps []resolve.Coord) {
+	for _, d := range deps {
+		key := d.String()
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		*dest = append(*dest, d)
+	}
 }

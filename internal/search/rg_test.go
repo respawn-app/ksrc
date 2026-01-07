@@ -55,6 +55,24 @@ func TestRunUsesZipSearchWhenSupported(t *testing.T) {
 	}
 }
 
+func TestRunTreatsExitCodeOneAsNoMatches(t *testing.T) {
+	jarPath := filepath.Join(t.TempDir(), "foo.jar")
+	coord := resolve.Coord{Group: "com.example", Artifact: "foo", Version: "1.0.0"}
+	runner := &exitCodeRunner{jarPath: jarPath, exitCode: 1}
+
+	matches, err := Run(context.Background(), runner, Options{
+		Pattern: "Needle",
+		Jars:    []resolve.SourceJar{{Coord: coord, Path: jarPath}},
+		WorkDir: ".",
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(matches) != 0 {
+		t.Fatalf("expected no matches, got %d", len(matches))
+	}
+}
+
 type fakeRunner struct {
 	jarPath       string
 	usedSearchZip bool
@@ -91,4 +109,39 @@ func containsArg(args []string, needle string) bool {
 		}
 	}
 	return false
+}
+
+type exitCodeRunner struct {
+	jarPath  string
+	exitCode int
+}
+
+func (e *exitCodeRunner) Run(_ context.Context, _ string, name string, args ...string) (string, string, error) {
+	if name != "rg" {
+		return "", "", fmt.Errorf("unexpected command: %s", name)
+	}
+	if containsArg(args, "ksrc-zip-probe") {
+		path := args[len(args)-1]
+		return fmt.Sprintf("%s:probe.txt:1:1:ksrc-zip-probe\n", path), "", nil
+	}
+	if containsArg(args, "Needle") {
+		return "", "", exitError{code: e.exitCode}
+	}
+	return "", "", nil
+}
+
+func (e *exitCodeRunner) LookPath(string) (string, error) {
+	return "rg", nil
+}
+
+type exitError struct {
+	code int
+}
+
+func (e exitError) Error() string {
+	return fmt.Sprintf("exit status %d", e.code)
+}
+
+func (e exitError) ExitCode() int {
+	return e.code
 }
