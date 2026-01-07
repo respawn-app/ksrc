@@ -64,17 +64,20 @@ def matchesScope = { String name, String scope ->
     }
 }
 
+def props = gradle.startParameter.projectProperties
+def moduleProp = props['ksrcModule']
+def groupProp = props['ksrcGroup']
+def artifactProp = props['ksrcArtifact']
+def versionProp = props['ksrcVersion']
+def configProp = props['ksrcConfig']
+def targetsProp = props['ksrcTargets']
+def subprojectsProp = props['ksrcSubprojects']
+def scopeProp = props['ksrcScope'] ?: 'compile'
+def depProp = props['ksrcDep']
+def includeBuildscript = (props['ksrcBuildscript'] ?: 'true').toString().toBoolean()
+def includeIncludedBuilds = (props['ksrcIncludeBuilds'] ?: 'true').toString().toBoolean()
+
 gradle.rootProject { root ->
-    def props = gradle.startParameter.projectProperties
-    def moduleProp = props['ksrcModule']
-    def groupProp = props['ksrcGroup']
-    def artifactProp = props['ksrcArtifact']
-    def versionProp = props['ksrcVersion']
-    def configProp = props['ksrcConfig']
-    def targetsProp = props['ksrcTargets']
-    def subprojectsProp = props['ksrcSubprojects']
-    def scopeProp = props['ksrcScope'] ?: 'compile'
-    def depProp = props['ksrcDep']
 
     def configs = splitCsv(configProp as String)
     def targets = splitCsv(targetsProp as String)
@@ -90,7 +93,7 @@ gradle.rootProject { root ->
             proj.configurations.each { cfg ->
                 if (!cfg.canBeResolved) return
                 if (!configs.isEmpty()) {
-                    if (configs.contains(cfg.name)) selectedConfigs << cfg
+                    if (configs.any { cfgPattern -> matchesGlob(cfgPattern as String, cfg.name) }) selectedConfigs << cfg
                 } else {
                     if (matchesTargets(cfg.name, targets) && matchesScope(cfg.name, scopeProp as String)) selectedConfigs << cfg
                 }
@@ -107,6 +110,24 @@ gradle.rootProject { root ->
             cfg.incoming.resolutionResult.allComponents.each { comp ->
                 def id = comp.id
                 if (id instanceof ModuleComponentIdentifier) moduleIds << id
+            }
+        }
+
+        if (includeBuildscript) {
+            def buildscriptConfigs = []
+            proj.buildscript.configurations.each { cfg ->
+                if (!cfg.canBeResolved) return
+                if (!configs.isEmpty()) {
+                    if (configs.any { cfgPattern -> matchesGlob(cfgPattern as String, cfg.name) }) buildscriptConfigs << cfg
+                } else {
+                    buildscriptConfigs << cfg
+                }
+            }
+            buildscriptConfigs.each { cfg ->
+                cfg.incoming.resolutionResult.allComponents.each { comp ->
+                    def id = comp.id
+                    if (id instanceof ModuleComponentIdentifier) moduleIds << id
+                }
             }
         }
 
@@ -128,7 +149,10 @@ gradle.rootProject { root ->
         }
         if (sourceDeps.isEmpty()) return
 
-        def sourcesCfg = proj.configurations.detachedConfiguration(*sourceDeps)
+        def sourcesCfg = proj.configurations.detachedConfiguration()
+        sourceDeps.each { dep ->
+            sourcesCfg.dependencies.add(dep)
+        }
         sourcesCfg.transitive = false
         def lenient = sourcesCfg.resolvedConfiguration.lenientConfiguration
         lenient.artifacts.each { art ->
@@ -159,6 +183,32 @@ gradle.rootProject { root ->
 
     root.tasks.register('ksrcSources') {
         dependsOn(projectTasks)
+    }
+}
+
+gradle.settingsEvaluated { settings ->
+    if (!includeIncludedBuilds) return
+    try {
+        gradle.includedBuilds.each { build ->
+            def dir = null
+            try {
+                dir = build.projectDir
+            } catch (Throwable ignored) {
+                dir = null
+            }
+            if (dir == null) {
+                try {
+                    dir = build.rootDir
+                } catch (Throwable ignored) {
+                    dir = null
+                }
+            }
+            if (dir != null) {
+                println "KSRCINCLUDE|${dir.absolutePath}"
+            }
+        }
+    } catch (Throwable ignored) {
+        // Included builds may be unavailable for this Gradle version or lifecycle phase.
     }
 }
 `

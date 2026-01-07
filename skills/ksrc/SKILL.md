@@ -1,17 +1,19 @@
 ---
 name: ksrc
-description: CLI for searching/reading Kotlin dependency sources from a Gradle project. Use when you need to locate a class/function in a library and inspect dependency source files.
+description: CLI for searching/reading Kotlin dependency sources from a Gradle project. Use when you need to locate/inspect 3rd-party Gradle libraries.
 ---
 
 ## Quick start
 - Search a module:
   `ksrc search org.jetbrains.kotlinx:kotlinx-datetime -q "class LocalDate"`
-- Read a file by id:
+- Read a file by returned id:
   `ksrc cat org.jetbrains.kotlinx:kotlinx-datetime:0.6.1!/kotlinx/datetime/LocalDate.kt --lines 1,200`
 
 ## Commands
 ### `ksrc search [<module>] -q <pattern> [-- <rg-args>]`
 Search dependency sources.
+
+Output format: `<file-id> <line>:<col>:<match>`
 
 Common flags:
 - `--all` search across all resolved deps (required if `<module>` omitted)
@@ -29,9 +31,6 @@ Common flags:
 - `--rg-args <args>` extra rg args (comma‑separated)
 - `-- <rg-args>` pass through raw rg args
 - `--show-extracted-path` include temp extracted paths in output (off by default)
-
-Output format:
-`<file-id> <line>:<col>:<match>` (use `--show-extracted-path` for temp paths)
 
 ### `ksrc cat <file-id|path>`
 Print file contents.
@@ -63,7 +62,6 @@ Basic diagnostics for environment issues.
 
 ## Common issues
 - `E_NO_MODULE`: provide `<module>` or pass `--all`.
-- `E_NO_SOURCES`: dependency sources not available; try `ksrc deps`, `ksrc fetch <coord>`, or rerun without `--offline`.
+- `E_NO_SOURCES`: dependency sources not available; try `ksrc deps`, `ksrc fetch <coord>`, specify a project and scope.
 - Gradle not found: run in a Gradle project or set `--project` to the root.
-- `rg` not found: install ripgrep and ensure it’s on PATH.
 - Ambiguous modules: use `--module`, `--group`, or `--artifact` to narrow.

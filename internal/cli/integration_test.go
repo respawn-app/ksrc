@@ -73,9 +73,12 @@ func TestSearchContextAndPassThrough(t *testing.T) {
 		t.Fatalf("context lines missing: %s", ctxOut)
 	}
 
-	_, err = runCommand(app, []string{"search", "org.jetbrains.kotlinx:kotlinx-datetime", "-q", "public class LocalDate", "--project", projectDir, "--", "-g", "!*.kt"})
-	if err == nil {
-		t.Fatalf("expected pass-through args to filter matches")
+	filteredOut, err := runCommand(app, []string{"search", "org.jetbrains.kotlinx:kotlinx-datetime", "-q", "public class LocalDate", "--project", projectDir, "--", "-g", "!*.kt"})
+	if err != nil {
+		t.Fatalf("unexpected error for filtered search: %v", err)
+	}
+	if strings.TrimSpace(filteredOut) != "" {
+		t.Fatalf("expected filtered search to return no matches, got: %s", filteredOut)
 	}
 }
 

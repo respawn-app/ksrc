@@ -142,6 +142,9 @@ func runZipSearch(ctx context.Context, runner executil.Runner, opts Options) ([]
 
 	stdout, stderr, err := runner.Run(ctx, opts.WorkDir, "rg", args...)
 	if err != nil {
+		if isNoMatches(err) {
+			return nil, nil
+		}
 		if strings.TrimSpace(stdout) == "" {
 			return nil, fmt.Errorf("rg failed: %w\n%s", err, strings.TrimSpace(stderr))
 		}
@@ -192,6 +195,9 @@ func runExtractSearch(ctx context.Context, runner executil.Runner, opts Options)
 
 	stdout, stderr, err := runner.Run(ctx, opts.WorkDir, "rg", args...)
 	if err != nil {
+		if isNoMatches(err) {
+			return nil, nil
+		}
 		if strings.TrimSpace(stdout) == "" {
 			return nil, fmt.Errorf("rg failed: %w\n%s", err, strings.TrimSpace(stderr))
 		}
@@ -215,6 +221,20 @@ func runExtractSearch(ctx context.Context, runner executil.Runner, opts Options)
 		matches = append(matches, m)
 	}
 	return matches, nil
+}
+
+type exitCoder interface {
+	ExitCode() int
+}
+
+func isNoMatches(err error) bool {
+	if err == nil {
+		return false
+	}
+	if code, ok := err.(exitCoder); ok {
+		return code.ExitCode() == 1
+	}
+	return false
 }
 
 func supportsZipSearch(ctx context.Context, runner executil.Runner) bool {

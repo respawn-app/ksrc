@@ -1,0 +1,192 @@
+package gradle
+
+import (
+	"context"
+	"errors"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/respawn-app/ksrc/internal/resolve"
+)
+
+type fakeRunner struct{}
+
+func (fakeRunner) Run(_ context.Context, _ string, _ string, _ ...string) (string, string, error) {
+	return "", "", nil
+}
+
+func (fakeRunner) LookPath(_ string) (string, error) {
+	return "", errors.New("not found")
+}
+
+func TestFindGradlePrefersLocalWrapper(t *testing.T) {
+	dir := t.TempDir()
+	wrapper := filepath.Join(dir, "gradlew")
+	if err := os.WriteFile(wrapper, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatalf("write wrapper: %v", err)
+	}
+	cmd, err := findGradle(fakeRunner{}, dir, "")
+	if err != nil {
+		t.Fatalf("findGradle: %v", err)
+	}
+	if cmd != "./gradlew" {
+		t.Fatalf("expected local wrapper, got %q", cmd)
+	}
+}
+
+func TestFindGradleFallsBackToRootWrapper(t *testing.T) {
+	root := t.TempDir()
+	included := t.TempDir()
+	wrapper := filepath.Join(root, "gradlew")
+	if err := os.WriteFile(wrapper, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatalf("write wrapper: %v", err)
+	}
+	cmd, err := findGradle(fakeRunner{}, included, root)
+	if err != nil {
+		t.Fatalf("findGradle: %v", err)
+	}
+	if cmd != wrapper {
+		t.Fatalf("expected root wrapper %q, got %q", wrapper, cmd)
+	}
+}
+
+func TestMergeResultsIncludesWarnings(t *testing.T) {
+	base := ResolveResult{
+		Sources: []resolve.SourceJar{},
+		Deps:    []resolve.Coord{},
+		Warnings: []string{
+			"base warning",
+		},
+	}
+	extra := ResolveResult{
+		Warnings: []string{
+			"extra warning",
+		},
+	}
+	merged := mergeResults(base, extra)
+	if len(merged.Warnings) != 2 {
+		t.Fatalf("expected 2 warnings, got %d", len(merged.Warnings))
+	}
+}
+
+func TestResolveStopsAfterRootSources(t *testing.T) {
+	root := t.TempDir()
+	runner := &scriptedRunner{
+		responses: map[string]runResult{
+			root: {
+				stdout: "KSRC|com.example:demo:1.0.0|/tmp/demo-sources.jar\n",
+			},
+		},
+	}
+	opts := ResolveOptions{
+		ProjectDir:      root,
+		IncludeBuildSrc: true,
+	}
+	res, err := Resolve(context.Background(), runner, opts)
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	if len(res.Sources) != 1 {
+		t.Fatalf("expected 1 source, got %d", len(res.Sources))
+	}
+	if len(runner.calls) != 1 {
+		t.Fatalf("expected 1 Gradle call, got %d", len(runner.calls))
+	}
+}
+
+func TestResolveFallsBackToBuildSrc(t *testing.T) {
+	dir := t.TempDir()
+	buildSrcDir := filepath.Join(dir, "buildSrc")
+	if err := os.MkdirAll(buildSrcDir, 0o755); err != nil {
+		t.Fatalf("mkdir buildSrc: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(buildSrcDir, "build.gradle.kts"), []byte(""), 0o644); err != nil {
+		t.Fatalf("write buildSrc build file: %v", err)
+	}
+
+	runner := &scriptedRunner{
+		responses: map[string]runResult{
+			dir: {
+				stdout: "",
+			},
+			buildSrcDir: {
+				stdout: "KSRC|com.example:demo:1.0.0|/tmp/demo-sources.jar\n",
+			},
+		},
+	}
+	opts := ResolveOptions{
+		ProjectDir:      dir,
+		IncludeBuildSrc: true,
+	}
+	res, err := Resolve(context.Background(), runner, opts)
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	if len(res.Sources) != 1 {
+		t.Fatalf("expected 1 source, got %d", len(res.Sources))
+	}
+	if len(runner.calls) != 2 {
+		t.Fatalf("expected 2 Gradle calls, got %d", len(runner.calls))
+	}
+}
+
+func TestResolveFallsBackToIncludedBuilds(t *testing.T) {
+	root := t.TempDir()
+	included := t.TempDir()
+	runner := &scriptedRunner{
+		responses: map[string]runResult{
+			root: {
+				stdout: "KSRCINCLUDE|" + included + "\n",
+			},
+			included: {
+				stdout: "KSRC|com.example:demo:1.0.0|/tmp/demo-sources.jar\n",
+			},
+		},
+	}
+	opts := ResolveOptions{
+		ProjectDir:            root,
+		IncludeIncludedBuilds: true,
+	}
+	res, err := Resolve(context.Background(), runner, opts)
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	if len(res.Sources) != 1 {
+		t.Fatalf("expected 1 source, got %d", len(res.Sources))
+	}
+	if len(runner.calls) != 2 {
+		t.Fatalf("expected 2 Gradle calls, got %d", len(runner.calls))
+	}
+}
+
+type scriptedRunner struct {
+	responses map[string]runResult
+	calls     []string
+}
+
+type runResult struct {
+	stdout string
+	stderr string
+	err    error
+}
+
+func (r *scriptedRunner) Run(_ context.Context, dir string, _ string, args ...string) (string, string, error) {
+	key := dir
+	for i := 0; i < len(args)-1; i++ {
+		if args[i] == "-p" {
+			key = args[i+1]
+			break
+		}
+	}
+	r.calls = append(r.calls, strings.Join(args, " "))
+	if res, ok := r.responses[key]; ok {
+		return res.stdout, res.stderr, res.err
+	}
+	return "", "", nil
+}
+
+func (r *scriptedRunner) LookPath(_ string) (string, error) {
+	return "gradle", nil
+}

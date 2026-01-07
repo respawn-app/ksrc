@@ -1,21 +1,22 @@
-# AGENTS.md
-
 ## Project Purpose
-`ksrc` is a CLI for one‑liner search and file read of Kotlin dependency sources. It resolves dependency versions from the project, ensures source JARs are present in **Gradle caches**, and runs `rg --search-zip` over those JARs. Output includes a `<file-id>` so `ksrc cat` can read files without extra resolution steps.
+`ksrc` is a CLI for one‑liner search and file read of Kotlin dependency sources. It resolves dependency versions from the project, ensures source JARs are present in **Gradle caches**, and runs `rg` over those JARs.
 
 ## Stack
 - Language: Go 1.22+
 - CLI: cobra
-- Search: external `rg` (`--search-zip`)
-- Gradle integration: per‑invocation init script (`-I <temp>`), prefer `./gradlew`, fallback to `gradle`
+- Search: external `rg`
+- Gradle integration: per‑invocation init script (`-I <temp>`)
 - File read: Go `archive/zip` + line slicing
 
 ## Philosophy / Rules
 - Zero project mutation: no files written to the repo.
 - No custom cache/index: use Gradle caches only.
-- One‑liner UX: `ksrc search <module> -q <pattern>` and `ksrc cat <file-id>`.
+- Minimize agent context pollution, compact outputs.
 - Deterministic resolution: prefer project‑resolved versions; only fall back to cache‑latest if absent.
 - Keep output stable and parseable.
+- Fixed bug? -> Add a regression test.
+- New feature? -> Cover with unit tests without asking, ask user if they want integration tests.
+- Read `docs/decisions.md` for architecture and decisions; keep it updated with new decisions from the team.
 
 ## Directory / Module Structure (planned)
 - `cmd/` — CLI entry points and wiring
@@ -28,11 +29,10 @@
 - `docs/` — CLI spec and stack
 
 ## Common Tasks
-- Add/adjust commands: update cobra wiring in `cmd/`, keep flags consistent with `docs/cli-api.md`.
+- Add/adjust commands: update cobra wiring in `cmd/`
 - Resolution changes: keep init script minimal and compatible with multiple Gradle versions.
 - Search changes: must keep `rg` call scoped to resolved JARs only.
-- Cat changes: must support `<file-id>` and `--lines start:end`.
-- After code changes, rebuild the binary to `./bin/ksrc` so the symlinked CLI updates.
+- After code changes, rebuild the binary to `./bin/ksrc` so the symlinked CLI updates for the user.
 
 ## Tests
 - Unit: parsing, version selection, file‑id handling.
@@ -40,5 +40,5 @@
 
 ## Clean Merge Expectations
 - Keep changes focused;
-- Update docs when CLI flags or output formats change.
-- Update AGENTS.md (this file) with learnings/rules and project info.
+- Update ./docs and ./skills when CLI flags or output formats change.
+- Update AGENTS.md (this file) with learnings/rules/memories for future you.
