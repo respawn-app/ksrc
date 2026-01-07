@@ -64,6 +64,8 @@ ksrc search [<module>] -q <pattern> [flags] [-- <rg-args>]
 - `--version <glob>`: Filter by version
 - `--scope <compile|runtime|test|all>`: Dependency scope (default: `compile`)
 - `--buildsrc`: Include buildSrc dependencies (default: `true`; set `--buildsrc=false` to disable)
+- `--buildscript`: Include buildscript classpath deps (default: `true`; set `--buildscript=false` to disable)
+- `--include-builds`: Include composite builds (includeBuild) (default: `true`; set `--include-builds=false` to disable)
 - `--refresh`: Re‑resolve and re‑download sources
 - `--offline`: Only use cached sources, error if missing
 - `--context <n>`: Show N lines before/after matches (rg `-C`)
@@ -97,6 +99,10 @@ ksrc cat <file-id|path> [flags]
 - `--project <path>`
 - `--module <glob>` (disambiguate)
 - `--buildsrc`: Include buildSrc dependencies (default: `true`; set `--buildsrc=false` to disable)
+- `--buildscript`: Include buildscript classpath deps (default: `true`; set `--buildscript=false` to disable)
+- `--include-builds`: Include composite builds (includeBuild) (default: `true`; set `--include-builds=false` to disable)
+- `--buildscript`: Include buildscript classpath deps (default: `true`; set `--buildscript=false` to disable)
+- `--include-builds`: Include composite builds (includeBuild) (default: `true`; set `--include-builds=false` to disable)
 - `--lines <start,end>`: Output a line range (1‑based, inclusive; sed‑style)
 
 ---
@@ -113,6 +119,8 @@ ksrc open <path> [flags]
 - `--project <path>`
 - `--module <glob>` (disambiguate)
 - `--buildsrc`: Include buildSrc dependencies (default: `true`; set `--buildsrc=false` to disable)
+- `--buildscript`: Include buildscript classpath deps (default: `true`; set `--buildscript=false` to disable)
+- `--include-builds`: Include composite builds (includeBuild) (default: `true`; set `--include-builds=false` to disable)
 - `--lines <start,end>`: Output a line range (1‑based, inclusive; sed‑style)
 
 ---
@@ -134,6 +142,10 @@ ksrc deps [flags]
 - `--offline`
 - `--refresh`
 - `--buildsrc`: Include buildSrc dependencies (default: `true`; set `--buildsrc=false` to disable)
+- `--buildscript`: Include buildscript classpath deps (default: `true`; set `--buildscript=false` to disable)
+- `--include-builds`: Include composite builds (includeBuild) (default: `true`; set `--include-builds=false` to disable)
+- `--buildscript`: Include buildscript classpath deps (default: `true`; set `--buildscript=false` to disable)
+- `--include-builds`: Include composite builds (includeBuild) (default: `true`; set `--include-builds=false` to disable)
 
 **Output (default)**
 `group:artifact:version  [sources: yes|no]  [path: <gradle cache path>]`
@@ -152,6 +164,8 @@ ksrc fetch org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1
 - `--project <path>` (optional, if resolving via project)
 - `--refresh`
 - `--buildsrc`: Include buildSrc dependencies (default: `true`; set `--buildsrc=false` to disable)
+- `--buildscript`: Include buildscript classpath deps (default: `true`; set `--buildscript=false` to disable)
+- `--include-builds`: Include composite builds (includeBuild) (default: `true`; set `--include-builds=false` to disable)
 
 ---
 
@@ -221,6 +235,8 @@ Diagnostics for project detection, Gradle cache accessibility, and source availa
 - Does **not** modify project files.
 - Uses Gradle to resolve and download source artifacts.
 - Includes `buildSrc` dependencies by default when `buildSrc/` is a Gradle build.
+- Includes `buildscript` classpath dependencies by default.
+- Includes composite builds (`includeBuild`) by default.
 
 ### Resolution Mechanism
 - Default runner: project Gradle wrapper (`./gradlew`); fallback: `gradle` on PATH.

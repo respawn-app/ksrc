@@ -12,49 +12,72 @@ import (
 )
 
 type ResolveOptions struct {
-	ProjectDir      string
-	ProjectPath     string
-	Module          string
-	Group           string
-	Artifact        string
-	Version         string
-	Scope           string
-	Configs         []string
-	Targets         []string
-	Subprojects     []string
-	Dep             string
-	Offline         bool
-	Refresh         bool
-	IncludeBuildSrc bool
+	ProjectDir            string
+	ProjectPath           string
+	Module                string
+	Group                 string
+	Artifact              string
+	Version               string
+	Scope                 string
+	Configs               []string
+	Targets               []string
+	Subprojects           []string
+	Dep                   string
+	Offline               bool
+	Refresh               bool
+	IncludeBuildSrc       bool
+	IncludeBuildscript    bool
+	IncludeIncludedBuilds bool
 }
 
 type ResolveResult struct {
-	Sources []resolve.SourceJar
-	Deps    []resolve.Coord
+	Sources        []resolve.SourceJar
+	Deps           []resolve.Coord
+	IncludedBuilds []string
 }
 
 func Resolve(ctx context.Context, runner executil.Runner, opts ResolveOptions) (ResolveResult, error) {
-	result, err := resolveOnce(ctx, runner, opts)
-	if err != nil {
-		return ResolveResult{}, err
-	}
+	buildQueue := []string{opts.ProjectDir}
+	seenBuilds := make(map[string]struct{})
+	combined := ResolveResult{}
 
-	if !opts.IncludeBuildSrc {
-		return result, nil
-	}
+	for len(buildQueue) > 0 {
+		buildDir := strings.TrimSpace(buildQueue[0])
+		buildQueue = buildQueue[1:]
+		if buildDir == "" {
+			continue
+		}
+		key := cleanPath(buildDir)
+		if _, exists := seenBuilds[key]; exists {
+			continue
+		}
+		seenBuilds[key] = struct{}{}
 
-	buildSrcDir := filepath.Join(opts.ProjectDir, "buildSrc")
-	if shouldResolveBuildSrc(buildSrcDir, opts.ProjectDir, opts.ProjectPath) {
-		buildSrcOpts := opts
-		buildSrcOpts.ProjectPath = buildSrcDir
-		buildSrcOpts.Subprojects = nil
-		buildSrcRes, err := resolveOnce(ctx, runner, buildSrcOpts)
+		buildOpts := opts
+		buildOpts.ProjectDir = buildDir
+		buildOpts.ProjectPath = ""
+
+		res, err := resolveBuild(ctx, runner, buildOpts)
 		if err != nil {
 			return ResolveResult{}, err
 		}
-		result = mergeResults(result, buildSrcRes)
+		combined = mergeResults(combined, res)
+
+		if opts.IncludeIncludedBuilds {
+			for _, inc := range res.IncludedBuilds {
+				inc = strings.TrimSpace(inc)
+				if inc == "" {
+					continue
+				}
+				if _, exists := seenBuilds[cleanPath(inc)]; exists {
+					continue
+				}
+				buildQueue = append(buildQueue, inc)
+			}
+		}
 	}
-	return result, nil
+
+	return combined, nil
 }
 
 func resolveOnce(ctx context.Context, runner executil.Runner, opts ResolveOptions) (ResolveResult, error) {
@@ -89,6 +112,7 @@ func resolveOnce(ctx context.Context, runner executil.Runner, opts ResolveOption
 
 	result := ResolveResult{}
 	seen := make(map[string]struct{})
+	seenIncludes := make(map[string]struct{})
 	for _, line := range strings.Split(stdout, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
@@ -114,6 +138,41 @@ func resolveOnce(ctx context.Context, runner executil.Runner, opts ResolveOption
 			}
 			result.Deps = append(result.Deps, coord)
 		}
+		if strings.HasPrefix(line, "KSRCINCLUDE|") {
+			path := strings.TrimSpace(strings.TrimPrefix(line, "KSRCINCLUDE|"))
+			if path == "" {
+				continue
+			}
+			if _, exists := seenIncludes[path]; exists {
+				continue
+			}
+			seenIncludes[path] = struct{}{}
+			result.IncludedBuilds = append(result.IncludedBuilds, path)
+		}
+	}
+	return result, nil
+}
+
+func resolveBuild(ctx context.Context, runner executil.Runner, opts ResolveOptions) (ResolveResult, error) {
+	result, err := resolveOnce(ctx, runner, opts)
+	if err != nil {
+		return ResolveResult{}, err
+	}
+
+	if !opts.IncludeBuildSrc {
+		return result, nil
+	}
+
+	buildSrcDir := filepath.Join(opts.ProjectDir, "buildSrc")
+	if shouldResolveBuildSrc(buildSrcDir, opts.ProjectDir, opts.ProjectPath) {
+		buildSrcOpts := opts
+		buildSrcOpts.ProjectPath = buildSrcDir
+		buildSrcOpts.Subprojects = nil
+		buildSrcRes, err := resolveOnce(ctx, runner, buildSrcOpts)
+		if err != nil {
+			return ResolveResult{}, err
+		}
+		result = mergeResults(result, buildSrcRes)
 	}
 	return result, nil
 }
@@ -161,7 +220,7 @@ func samePath(a string, b string) bool {
 }
 
 func mergeResults(base ResolveResult, extra ResolveResult) ResolveResult {
-	if len(extra.Sources) == 0 && len(extra.Deps) == 0 {
+	if len(extra.Sources) == 0 && len(extra.Deps) == 0 && len(extra.IncludedBuilds) == 0 {
 		return base
 	}
 	seenSources := make(map[string]struct{}, len(base.Sources))
@@ -189,6 +248,20 @@ func mergeResults(base ResolveResult, extra ResolveResult) ResolveResult {
 		seenDeps[key] = struct{}{}
 		base.Deps = append(base.Deps, d)
 	}
+
+	if len(extra.IncludedBuilds) > 0 {
+		seenIncludes := make(map[string]struct{}, len(base.IncludedBuilds))
+		for _, inc := range base.IncludedBuilds {
+			seenIncludes[inc] = struct{}{}
+		}
+		for _, inc := range extra.IncludedBuilds {
+			if _, ok := seenIncludes[inc]; ok {
+				continue
+			}
+			seenIncludes[inc] = struct{}{}
+			base.IncludedBuilds = append(base.IncludedBuilds, inc)
+		}
+	}
 	return base
 }
 
@@ -215,7 +288,20 @@ func buildProps(opts ResolveOptions) []string {
 		add("ksrcSubprojects", strings.Join(opts.Subprojects, ","))
 	}
 	add("ksrcDep", opts.Dep)
+	if opts.IncludeBuildscript {
+		add("ksrcBuildscript", "true")
+	} else {
+		add("ksrcBuildscript", "false")
+	}
 	return props
+}
+
+func cleanPath(path string) string {
+	abs, err := filepath.Abs(path)
+	if err == nil {
+		return abs
+	}
+	return filepath.Clean(path)
 }
 
 func parseLine(line, prefix string) (resolve.Coord, string, bool) {

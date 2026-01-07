@@ -17,6 +17,8 @@
 - Deterministic resolution: prefer project‑resolved versions; only fall back to cache‑latest if absent.
 - Keep output stable and parseable.
 - Include `buildSrc` dependencies by default (disable with `--buildsrc=false`).
+- Include buildscript classpath deps by default (disable with `--buildscript=false`).
+- Include composite builds (includeBuild) by default (disable with `--include-builds=false`).
 
 ## Directory / Module Structure (planned)
 - `cmd/` — CLI entry points and wiring

@@ -75,6 +75,7 @@ gradle.rootProject { root ->
     def subprojectsProp = props['ksrcSubprojects']
     def scopeProp = props['ksrcScope'] ?: 'compile'
     def depProp = props['ksrcDep']
+    def includeBuildscript = (props['ksrcBuildscript'] ?: 'true').toString().toBoolean()
 
     def configs = splitCsv(configProp as String)
     def targets = splitCsv(targetsProp as String)
@@ -107,6 +108,24 @@ gradle.rootProject { root ->
             cfg.incoming.resolutionResult.allComponents.each { comp ->
                 def id = comp.id
                 if (id instanceof ModuleComponentIdentifier) moduleIds << id
+            }
+        }
+
+        if (includeBuildscript) {
+            def buildscriptConfigs = []
+            proj.buildscript.configurations.each { cfg ->
+                if (!cfg.canBeResolved) return
+                if (!configs.isEmpty()) {
+                    if (configs.contains(cfg.name)) buildscriptConfigs << cfg
+                } else {
+                    buildscriptConfigs << cfg
+                }
+            }
+            buildscriptConfigs.each { cfg ->
+                cfg.incoming.resolutionResult.allComponents.each { comp ->
+                    def id = comp.id
+                    if (id instanceof ModuleComponentIdentifier) moduleIds << id
+                }
             }
         }
 
@@ -159,6 +178,27 @@ gradle.rootProject { root ->
 
     root.tasks.register('ksrcSources') {
         dependsOn(projectTasks)
+    }
+}
+
+gradle.settingsEvaluated { settings ->
+    gradle.includedBuilds.each { build ->
+        def dir = null
+        try {
+            dir = build.projectDir
+        } catch (Throwable ignored) {
+            dir = null
+        }
+        if (dir == null) {
+            try {
+                dir = build.rootDir
+            } catch (Throwable ignored) {
+                dir = null
+            }
+        }
+        if (dir != null) {
+            println "KSRCINCLUDE|${dir.absolutePath}"
+        }
     }
 }
 `
