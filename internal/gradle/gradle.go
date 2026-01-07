@@ -168,7 +168,7 @@ func resolveBuild(ctx context.Context, runner executil.Runner, opts ResolveOptio
 		return ResolveResult{}, err
 	}
 
-	if !opts.IncludeBuildSrc {
+	if !opts.IncludeBuildSrc || strings.TrimSpace(opts.Dep) != "" {
 		return result, nil
 	}
 
