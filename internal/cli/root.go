@@ -13,7 +13,7 @@ func NewRootCommand(app *App) *cobra.Command {
 			"  Android: ksrc search --config \"*debugCompileClasspath\" --module \"group:artifact\" -q \"symbol\"\n" +
 			"  KMP:     ksrc search --targets jvm --module \"group:artifact\" -q \"symbol\"\n" +
 			"  JVM:     ksrc search --scope compile --module \"group:artifact\" -q \"symbol\"\n\n" +
-			"If E_NO_SOURCES: try --project <root>, --config \"*DebugCompileClasspath\", or --subproject :module.",
+			"If E_NO_SOURCES: try --project <root>, --config \"*debugCompileClasspath\", or --subproject :module.",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}

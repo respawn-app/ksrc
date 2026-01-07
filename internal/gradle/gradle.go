@@ -39,40 +39,72 @@ type ResolveResult struct {
 }
 
 func Resolve(ctx context.Context, runner executil.Runner, opts ResolveOptions) (ResolveResult, error) {
-	buildQueue := []string{opts.ProjectDir}
-	seenBuilds := make(map[string]struct{})
-	combined := ResolveResult{}
-	rootDir := opts.ProjectDir
-	includeBuilds := opts.IncludeIncludedBuilds && strings.TrimSpace(opts.Dep) == ""
+	rootOpts := opts
+	rootOpts.ProjectPath = ""
+	rootOpts.RootDir = opts.ProjectDir
 
-	for len(buildQueue) > 0 {
-		buildDir := strings.TrimSpace(buildQueue[0])
-		buildQueue = buildQueue[1:]
-		if buildDir == "" {
-			continue
-		}
-		key := cleanPath(buildDir)
-		if _, exists := seenBuilds[key]; exists {
-			continue
-		}
-		seenBuilds[key] = struct{}{}
+	rootRes, err := resolveOnce(ctx, runner, rootOpts)
+	if err != nil {
+		return ResolveResult{}, err
+	}
 
-		buildOpts := opts
-		buildOpts.ProjectDir = buildDir
-		buildOpts.RootDir = opts.ProjectDir
-		buildOpts.ProjectPath = ""
+	combined := rootRes
+	if len(combined.Sources) > 0 {
+		return combined, nil
+	}
+	if opts.Offline {
+		return combined, nil
+	}
 
-		res, err := resolveBuild(ctx, runner, buildOpts)
-		if err != nil {
-			if samePath(buildDir, rootDir) {
-				return ResolveResult{}, err
+	if opts.IncludeBuildSrc {
+		buildSrcDir := filepath.Join(opts.ProjectDir, "buildSrc")
+		if shouldResolveBuildSrc(buildSrcDir, opts.ProjectDir, opts.ProjectPath) {
+			buildSrcOpts := rootOpts
+			buildSrcOpts.ProjectPath = buildSrcDir
+			buildSrcOpts.Subprojects = nil
+			buildSrcRes, err := resolveOnce(ctx, runner, buildSrcOpts)
+			if err != nil {
+				combined.Warnings = append(combined.Warnings, fmt.Sprintf("buildSrc resolve failed (%s): %v", buildSrcDir, err))
+			} else {
+				combined = mergeResults(combined, buildSrcRes)
+				if len(buildSrcRes.Sources) > 0 {
+					combined.Warnings = append(combined.Warnings, "resolved sources from buildSrc")
+					return combined, nil
+				}
+				combined.Warnings = append(combined.Warnings, "buildSrc resolved but no sources matched")
 			}
-			combined.Warnings = append(combined.Warnings, fmt.Sprintf("included build resolve failed (%s): %v", buildDir, err))
-			continue
 		}
-		combined = mergeResults(combined, res)
+	}
 
-		if includeBuilds {
+	if opts.IncludeIncludedBuilds && len(rootRes.IncludedBuilds) > 0 {
+		buildQueue := append([]string{}, rootRes.IncludedBuilds...)
+		seenBuilds := make(map[string]struct{})
+		for len(buildQueue) > 0 {
+			buildDir := strings.TrimSpace(buildQueue[0])
+			buildQueue = buildQueue[1:]
+			if buildDir == "" {
+				continue
+			}
+			key := cleanPath(buildDir)
+			if _, exists := seenBuilds[key]; exists {
+				continue
+			}
+			seenBuilds[key] = struct{}{}
+
+			buildOpts := opts
+			buildOpts.ProjectDir = buildDir
+			buildOpts.RootDir = opts.ProjectDir
+			buildOpts.ProjectPath = ""
+
+			res, err := resolveOnce(ctx, runner, buildOpts)
+			if err != nil {
+				combined.Warnings = append(combined.Warnings, fmt.Sprintf("included build resolve failed (%s): %v", buildDir, err))
+				continue
+			}
+			combined = mergeResults(combined, res)
+			if len(res.Sources) > 0 {
+				return combined, nil
+			}
 			for _, inc := range res.IncludedBuilds {
 				inc = strings.TrimSpace(inc)
 				if inc == "" {
@@ -158,30 +190,6 @@ func resolveOnce(ctx context.Context, runner executil.Runner, opts ResolveOption
 			seenIncludes[path] = struct{}{}
 			result.IncludedBuilds = append(result.IncludedBuilds, path)
 		}
-	}
-	return result, nil
-}
-
-func resolveBuild(ctx context.Context, runner executil.Runner, opts ResolveOptions) (ResolveResult, error) {
-	result, err := resolveOnce(ctx, runner, opts)
-	if err != nil {
-		return ResolveResult{}, err
-	}
-
-	if !opts.IncludeBuildSrc || strings.TrimSpace(opts.Dep) != "" {
-		return result, nil
-	}
-
-	buildSrcDir := filepath.Join(opts.ProjectDir, "buildSrc")
-	if shouldResolveBuildSrc(buildSrcDir, opts.ProjectDir, opts.ProjectPath) {
-		buildSrcOpts := opts
-		buildSrcOpts.ProjectPath = buildSrcDir
-		buildSrcOpts.Subprojects = nil
-		buildSrcRes, err := resolveOnce(ctx, runner, buildSrcOpts)
-		if err != nil {
-			return ResolveResult{}, err
-		}
-		result = mergeResults(result, buildSrcRes)
 	}
 	return result, nil
 }

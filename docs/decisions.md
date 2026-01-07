@@ -1,0 +1,58 @@
+# Decisions and Architecture
+
+This file records non-obvious decisions, tradeoffs, and architecture notes. Update it whenever we make a new call.
+
+## Purpose
+Provide single-command search and file read for Kotlin dependency sources, without mutating the project and without a ksrc cache/index.
+
+## Goals
+- One-liner search (`ksrc search <module> -q "<pattern>"`).
+- One-liner file read (`ksrc cat <file-id>` or `ksrc open <file-id>`).
+- Deterministic dependency resolution using the project graph.
+- Use Gradle caches only; no repo writes.
+- No extra setup or discovery, out-of-the box "good enough" search results with no fiddling or per-project setup, with broad support. 
+- Prioritize KMP projects (all targets), then android projects, then pure kotlin (jvm backend) projects, when deciding tradeoffs.
+
+## Non-goals
+- IDE integration.
+- Build/test/run tasks.
+- Cross-language source search.
+
+## Resolution Order (as of 2026-01-07)
+Order by likelihood of success and cost. Stop after the first stage that yields sources.
+1) Root build
+2) buildSrc (only if root produced no sources, buildSrc exists, and not offline)
+3) Included builds (only if still no sources and include-builds enabled; BFS traversal)
+
+Rationale: avoid expensive Gradle runs unless needed; prioritize the most likely resolution source.
+
+## buildSrc Handling
+- buildSrc is attempted only when it exists and is a Gradle build.
+- buildSrc failures are non-fatal; warnings are emitted.
+- When buildSrc yields sources, emit a warning to make provenance explicit.
+
+## Composite Builds (includeBuild)
+- Included builds are resolved only as a fallback (after root and buildSrc).
+- Included build failures are non-fatal; warnings are emitted.
+- Access to included builds depends on Gradle lifecycle; init script prints included builds when available.
+- Wrapper selection: prefer local wrapper; fallback to root wrapper; then PATH.
+
+## Buildscript Dependencies
+- buildscript classpath dependencies are included by default (can be disabled).
+- Rationale: many build tool artifacts (AGP, etc.) live on buildscript classpaths.
+
+## Config Selection & Progressive Retry
+- `--config` accepts glob patterns (e.g., `*debugCompileClasspath`).
+- When `--config` is omitted and no sources are found, retry with Android debug classpaths:
+  - `*debugCompileClasspath` for compile scope
+  - `*debugRuntimeClasspath` for runtime scope
+- This provides a better first-try UX for Android repos without making the default slow for every run.
+
+## Error Handling & Warnings
+- Root build failures are fatal.
+- Fallback failures (buildSrc/included builds) are warnings; the command continues.
+- Warnings are emitted to stderr.
+
+## Performance Notes
+- Each resolution stage starts Gradle and can be slow.
+

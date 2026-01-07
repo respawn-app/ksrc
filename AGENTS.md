@@ -16,6 +16,7 @@
 - Keep output stable and parseable.
 - Fixed bug? -> Add a regression test.
 - New feature? -> Cover with unit tests without asking, ask user if they want integration tests.
+- Read `docs/decisions.md` for architecture and decisions; keep it updated with new decisions from the team.
 
 ## Directory / Module Structure (planned)
 - `cmd/` — CLI entry points and wiring

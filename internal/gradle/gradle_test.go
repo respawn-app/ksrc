@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/respawn-app/ksrc/internal/resolve"
@@ -70,7 +71,32 @@ func TestMergeResultsIncludesWarnings(t *testing.T) {
 	}
 }
 
-func TestResolveBuildSkipsBuildSrcForExplicitDep(t *testing.T) {
+func TestResolveStopsAfterRootSources(t *testing.T) {
+	root := t.TempDir()
+	runner := &scriptedRunner{
+		responses: map[string]runResult{
+			root: {
+				stdout: "KSRC|com.example:demo:1.0.0|/tmp/demo-sources.jar\n",
+			},
+		},
+	}
+	opts := ResolveOptions{
+		ProjectDir:      root,
+		IncludeBuildSrc: true,
+	}
+	res, err := Resolve(context.Background(), runner, opts)
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	if len(res.Sources) != 1 {
+		t.Fatalf("expected 1 source, got %d", len(res.Sources))
+	}
+	if len(runner.calls) != 1 {
+		t.Fatalf("expected 1 Gradle call, got %d", len(runner.calls))
+	}
+}
+
+func TestResolveFallsBackToBuildSrc(t *testing.T) {
 	dir := t.TempDir()
 	buildSrcDir := filepath.Join(dir, "buildSrc")
 	if err := os.MkdirAll(buildSrcDir, 0o755); err != nil {
@@ -80,29 +106,87 @@ func TestResolveBuildSkipsBuildSrcForExplicitDep(t *testing.T) {
 		t.Fatalf("write buildSrc build file: %v", err)
 	}
 
-	runner := &countingRunner{}
+	runner := &scriptedRunner{
+		responses: map[string]runResult{
+			dir: {
+				stdout: "",
+			},
+			buildSrcDir: {
+				stdout: "KSRC|com.example:demo:1.0.0|/tmp/demo-sources.jar\n",
+			},
+		},
+	}
 	opts := ResolveOptions{
 		ProjectDir:      dir,
 		IncludeBuildSrc: true,
-		Dep:             "com.example:demo:1.0.0",
 	}
-	if _, err := resolveBuild(context.Background(), runner, opts); err != nil {
-		t.Fatalf("resolveBuild: %v", err)
+	res, err := Resolve(context.Background(), runner, opts)
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
 	}
-	if runner.runCount != 1 {
-		t.Fatalf("expected 1 Gradle run, got %d", runner.runCount)
+	if len(res.Sources) != 1 {
+		t.Fatalf("expected 1 source, got %d", len(res.Sources))
+	}
+	if len(runner.calls) != 2 {
+		t.Fatalf("expected 2 Gradle calls, got %d", len(runner.calls))
 	}
 }
 
-type countingRunner struct {
-	runCount int
+func TestResolveFallsBackToIncludedBuilds(t *testing.T) {
+	root := t.TempDir()
+	included := t.TempDir()
+	runner := &scriptedRunner{
+		responses: map[string]runResult{
+			root: {
+				stdout: "KSRCINCLUDE|" + included + "\n",
+			},
+			included: {
+				stdout: "KSRC|com.example:demo:1.0.0|/tmp/demo-sources.jar\n",
+			},
+		},
+	}
+	opts := ResolveOptions{
+		ProjectDir:            root,
+		IncludeIncludedBuilds: true,
+	}
+	res, err := Resolve(context.Background(), runner, opts)
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	if len(res.Sources) != 1 {
+		t.Fatalf("expected 1 source, got %d", len(res.Sources))
+	}
+	if len(runner.calls) != 2 {
+		t.Fatalf("expected 2 Gradle calls, got %d", len(runner.calls))
+	}
 }
 
-func (r *countingRunner) Run(_ context.Context, _ string, _ string, _ ...string) (string, string, error) {
-	r.runCount++
+type scriptedRunner struct {
+	responses map[string]runResult
+	calls     []string
+}
+
+type runResult struct {
+	stdout string
+	stderr string
+	err    error
+}
+
+func (r *scriptedRunner) Run(_ context.Context, dir string, _ string, args ...string) (string, string, error) {
+	key := dir
+	for i := 0; i < len(args)-1; i++ {
+		if args[i] == "-p" {
+			key = args[i+1]
+			break
+		}
+	}
+	r.calls = append(r.calls, strings.Join(args, " "))
+	if res, ok := r.responses[key]; ok {
+		return res.stdout, res.stderr, res.err
+	}
 	return "", "", nil
 }
 
-func (r *countingRunner) LookPath(_ string) (string, error) {
+func (r *scriptedRunner) LookPath(_ string) (string, error) {
 	return "gradle", nil
 }
