@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/respawn-app/ksrc/internal/resolve"
 )
 
 type fakeRunner struct{}
@@ -46,5 +48,24 @@ func TestFindGradleFallsBackToRootWrapper(t *testing.T) {
 	}
 	if cmd != wrapper {
 		t.Fatalf("expected root wrapper %q, got %q", wrapper, cmd)
+	}
+}
+
+func TestMergeResultsIncludesWarnings(t *testing.T) {
+	base := ResolveResult{
+		Sources: []resolve.SourceJar{},
+		Deps:    []resolve.Coord{},
+		Warnings: []string{
+			"base warning",
+		},
+	}
+	extra := ResolveResult{
+		Warnings: []string{
+			"extra warning",
+		},
+	}
+	merged := mergeResults(base, extra)
+	if len(merged.Warnings) != 2 {
+		t.Fatalf("expected 2 warnings, got %d", len(merged.Warnings))
 	}
 }

@@ -35,12 +35,15 @@ type ResolveResult struct {
 	Sources        []resolve.SourceJar
 	Deps           []resolve.Coord
 	IncludedBuilds []string
+	Warnings       []string
 }
 
 func Resolve(ctx context.Context, runner executil.Runner, opts ResolveOptions) (ResolveResult, error) {
 	buildQueue := []string{opts.ProjectDir}
 	seenBuilds := make(map[string]struct{})
 	combined := ResolveResult{}
+	rootDir := opts.ProjectDir
+	includeBuilds := opts.IncludeIncludedBuilds && strings.TrimSpace(opts.Dep) == ""
 
 	for len(buildQueue) > 0 {
 		buildDir := strings.TrimSpace(buildQueue[0])
@@ -61,11 +64,15 @@ func Resolve(ctx context.Context, runner executil.Runner, opts ResolveOptions) (
 
 		res, err := resolveBuild(ctx, runner, buildOpts)
 		if err != nil {
-			return ResolveResult{}, err
+			if samePath(buildDir, rootDir) {
+				return ResolveResult{}, err
+			}
+			combined.Warnings = append(combined.Warnings, fmt.Sprintf("included build resolve failed (%s): %v", buildDir, err))
+			continue
 		}
 		combined = mergeResults(combined, res)
 
-		if opts.IncludeIncludedBuilds {
+		if includeBuilds {
 			for _, inc := range res.IncludedBuilds {
 				inc = strings.TrimSpace(inc)
 				if inc == "" {
@@ -222,7 +229,7 @@ func samePath(a string, b string) bool {
 }
 
 func mergeResults(base ResolveResult, extra ResolveResult) ResolveResult {
-	if len(extra.Sources) == 0 && len(extra.Deps) == 0 && len(extra.IncludedBuilds) == 0 {
+	if len(extra.Sources) == 0 && len(extra.Deps) == 0 && len(extra.IncludedBuilds) == 0 && len(extra.Warnings) == 0 {
 		return base
 	}
 	seenSources := make(map[string]struct{}, len(base.Sources))
@@ -262,6 +269,19 @@ func mergeResults(base ResolveResult, extra ResolveResult) ResolveResult {
 			}
 			seenIncludes[inc] = struct{}{}
 			base.IncludedBuilds = append(base.IncludedBuilds, inc)
+		}
+	}
+	if len(extra.Warnings) > 0 {
+		seenWarnings := make(map[string]struct{}, len(base.Warnings))
+		for _, warning := range base.Warnings {
+			seenWarnings[warning] = struct{}{}
+		}
+		for _, warning := range extra.Warnings {
+			if _, ok := seenWarnings[warning]; ok {
+				continue
+			}
+			seenWarnings[warning] = struct{}{}
+			base.Warnings = append(base.Warnings, warning)
 		}
 	}
 	return base

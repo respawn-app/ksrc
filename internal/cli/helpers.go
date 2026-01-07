@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/respawn-app/ksrc/internal/gradle"
@@ -13,6 +14,7 @@ import (
 type ResolveMeta struct {
 	Attempts            []string
 	TriedConfigPatterns []string
+	Warnings            []string
 }
 
 func resolveSources(ctx context.Context, app *App, flags ResolveFlags, dep string, applyFilters bool, allowCacheFallback bool) ([]resolve.SourceJar, []resolve.Coord, ResolveMeta, error) {
@@ -36,6 +38,7 @@ func resolveSources(ctx context.Context, app *App, flags ResolveFlags, dep strin
 		}
 		meta.Attempts = append(meta.Attempts, attempt.Label)
 		meta.TriedConfigPatterns = append(meta.TriedConfigPatterns, attempt.ConfigPatterns...)
+		meta.Warnings = append(meta.Warnings, res.Warnings...)
 		lastDeps = res.Deps
 		sources := res.Sources
 		if applyFilters {
@@ -199,6 +202,16 @@ func metaHasConfig(meta ResolveMeta, pattern string) bool {
 		}
 	}
 	return false
+}
+
+func emitWarnings(cmd stderrWriter, meta ResolveMeta) {
+	for _, warning := range meta.Warnings {
+		fmt.Fprintf(cmd.ErrOrStderr(), "WARN: %s\n", warning)
+	}
+}
+
+type stderrWriter interface {
+	ErrOrStderr() io.Writer
 }
 
 func mergeSources(dest *[]resolve.SourceJar, seen map[string]struct{}, sources []resolve.SourceJar) {

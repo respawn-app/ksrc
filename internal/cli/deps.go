@@ -14,10 +14,11 @@ func newDepsCmd(app *App) *cobra.Command {
 		Use:   "deps",
 		Short: "List resolved dependencies and source availability",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			sources, deps, _, err := resolveSources(context.Background(), app, flags, "", false, false)
+			sources, deps, meta, err := resolveSources(context.Background(), app, flags, "", false, false)
 			if err != nil {
 				return err
 			}
+			emitWarnings(cmd, meta)
 			sourceByCoord := make(map[string]string)
 			for _, s := range sources {
 				sourceByCoord[s.Coord.String()] = s.Path

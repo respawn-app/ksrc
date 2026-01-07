@@ -18,6 +18,7 @@ func newResolveCmd(app *App) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			emitWarnings(cmd, meta)
 			if len(sources) == 0 {
 				return noSourcesErr(flags, noSourcesHintForFlags(flags, meta))
 			}
