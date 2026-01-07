@@ -149,7 +149,10 @@ gradle.rootProject { root ->
         }
         if (sourceDeps.isEmpty()) return
 
-        def sourcesCfg = proj.configurations.detachedConfiguration(*sourceDeps)
+        def sourcesCfg = proj.configurations.detachedConfiguration()
+        sourceDeps.each { dep ->
+            sourcesCfg.dependencies.add(dep)
+        }
         sourcesCfg.transitive = false
         def lenient = sourcesCfg.resolvedConfiguration.lenientConfiguration
         lenient.artifacts.each { art ->
