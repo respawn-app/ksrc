@@ -64,18 +64,20 @@ def matchesScope = { String name, String scope ->
     }
 }
 
+def props = gradle.startParameter.projectProperties
+def moduleProp = props['ksrcModule']
+def groupProp = props['ksrcGroup']
+def artifactProp = props['ksrcArtifact']
+def versionProp = props['ksrcVersion']
+def configProp = props['ksrcConfig']
+def targetsProp = props['ksrcTargets']
+def subprojectsProp = props['ksrcSubprojects']
+def scopeProp = props['ksrcScope'] ?: 'compile'
+def depProp = props['ksrcDep']
+def includeBuildscript = (props['ksrcBuildscript'] ?: 'true').toString().toBoolean()
+def includeIncludedBuilds = (props['ksrcIncludeBuilds'] ?: 'true').toString().toBoolean()
+
 gradle.rootProject { root ->
-    def props = gradle.startParameter.projectProperties
-    def moduleProp = props['ksrcModule']
-    def groupProp = props['ksrcGroup']
-    def artifactProp = props['ksrcArtifact']
-    def versionProp = props['ksrcVersion']
-    def configProp = props['ksrcConfig']
-    def targetsProp = props['ksrcTargets']
-    def subprojectsProp = props['ksrcSubprojects']
-    def scopeProp = props['ksrcScope'] ?: 'compile'
-    def depProp = props['ksrcDep']
-    def includeBuildscript = (props['ksrcBuildscript'] ?: 'true').toString().toBoolean()
 
     def configs = splitCsv(configProp as String)
     def targets = splitCsv(targetsProp as String)
@@ -182,23 +184,28 @@ gradle.rootProject { root ->
 }
 
 gradle.settingsEvaluated { settings ->
-    gradle.includedBuilds.each { build ->
-        def dir = null
-        try {
-            dir = build.projectDir
-        } catch (Throwable ignored) {
-            dir = null
-        }
-        if (dir == null) {
+    if (!includeIncludedBuilds) return
+    try {
+        gradle.includedBuilds.each { build ->
+            def dir = null
             try {
-                dir = build.rootDir
+                dir = build.projectDir
             } catch (Throwable ignored) {
                 dir = null
             }
+            if (dir == null) {
+                try {
+                    dir = build.rootDir
+                } catch (Throwable ignored) {
+                    dir = null
+                }
+            }
+            if (dir != null) {
+                println "KSRCINCLUDE|${dir.absolutePath}"
+            }
         }
-        if (dir != null) {
-            println "KSRCINCLUDE|${dir.absolutePath}"
-        }
+    } catch (Throwable ignored) {
+        // Included builds may be unavailable for this Gradle version or lifecycle phase.
     }
 }
 `

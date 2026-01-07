@@ -293,6 +293,11 @@ func buildProps(opts ResolveOptions) []string {
 	} else {
 		add("ksrcBuildscript", "false")
 	}
+	if opts.IncludeIncludedBuilds {
+		add("ksrcIncludeBuilds", "true")
+	} else {
+		add("ksrcIncludeBuilds", "false")
+	}
 	return props
 }
 
