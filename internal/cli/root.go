@@ -6,8 +6,14 @@ import (
 
 func NewRootCommand(app *App) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:           "ksrc",
-		Short:         "Kotlin dependency source search",
+		Use:   "ksrc",
+		Short: "Kotlin dependency source search",
+		Long: "Kotlin dependency source search.\n\n" +
+			"Common recipes:\n" +
+			"  Android: ksrc search --config \"*DebugCompileClasspath\" --module \"group:artifact\" -q \"symbol\"\n" +
+			"  KMP:     ksrc search --targets jvm --module \"group:artifact\" -q \"symbol\"\n" +
+			"  JVM:     ksrc search --scope compile --module \"group:artifact\" -q \"symbol\"\n\n" +
+			"If E_NO_SOURCES: try --project <root>, --config \"*DebugCompileClasspath\", or --subproject :module.",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}

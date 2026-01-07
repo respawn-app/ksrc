@@ -57,7 +57,7 @@ ksrc search [<module>] -q <pattern> [flags] [-- <rg-args>]
 - `--all`: Search across all resolved dependencies (required if `<module>` is omitted)
 - `--subproject <name>`: Limit resolution to a subproject (repeatable)
 - `--targets <list>`: Limit KMP targets (comma‑separated, e.g. `jvm,android,iosX64`)
-- `--config <name>`: Dependency configuration(s) to resolve (default: inferred)
+- `--config <name>`: Dependency configuration(s) or glob patterns to resolve (comma‑separated; default: inferred)
 - `--module <glob>`: Filter by `group:artifact` glob (alias of positional `<module>`)
 - `--group <glob>`: Filter by group
 - `--artifact <glob>`: Filter by artifact
@@ -136,7 +136,7 @@ ksrc deps [flags]
 **Flags**
 - `--project <path>`
 - `--scope <compile|runtime|test|all>`
-- `--config <name>` (comma‑separated)
+- `--config <name>` (glob supported; comma‑separated)
 - `--targets <list>` (comma‑separated)
 - `--subproject <name>` (repeatable)
 - `--offline`
@@ -200,7 +200,7 @@ ksrc resolve [flags]
 - `--artifact <glob>`
 - `--version <glob>`
 - `--scope <compile|runtime|test|all>`
-- `--config <name>` (comma‑separated)
+- `--config <name>` (glob supported; comma‑separated)
 - `--targets <list>` (comma‑separated)
 - `--subproject <name>` (repeatable)
 - `--offline`
@@ -249,6 +249,8 @@ Diagnostics for project detection, Gradle cache accessibility, and source availa
 When `--config` is not provided, resolve **all main compile classpaths** across all subprojects:
 - `commonMainCompileClasspath` (if present)
 - `<target>MainCompileClasspath` for all detected KMP targets
+
+If no sources are found, ksrc progressively retries with broader scopes (e.g., Android `*DebugCompileClasspath`) before returning `E_NO_SOURCES`.
 
 `--subproject`, `--targets`, and `--config` let callers narrow or expand the scope.
 

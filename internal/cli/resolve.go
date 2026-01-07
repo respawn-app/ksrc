@@ -14,9 +14,12 @@ func newResolveCmd(app *App) *cobra.Command {
 		Use:   "resolve",
 		Short: "Resolve dependency sources",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			sources, _, err := resolveSources(context.Background(), app, flags, "", true, true)
+			sources, _, meta, err := resolveSources(context.Background(), app, flags, "", true, true)
 			if err != nil {
 				return err
+			}
+			if len(sources) == 0 {
+				return noSourcesErr(flags, noSourcesHintForFlags(flags, meta))
 			}
 			for _, s := range sources {
 				fmt.Fprintf(cmd.OutOrStdout(), "%s|%s\n", s.Coord.String(), s.Path)
@@ -31,7 +34,7 @@ func newResolveCmd(app *App) *cobra.Command {
 	cmd.Flags().StringVar(&flags.Artifact, "artifact", "", "artifact filter")
 	cmd.Flags().StringVar(&flags.Version, "version", "", "version filter")
 	cmd.Flags().StringVar(&flags.Scope, "scope", "compile", "dependency scope (compile|runtime|test|all)")
-	cmd.Flags().StringVar(&flags.Config, "config", "", "configuration name(s) (comma-separated)")
+	cmd.Flags().StringVar(&flags.Config, "config", "", "configuration name(s) or glob patterns (comma-separated)")
 	cmd.Flags().StringVar(&flags.Targets, "targets", "", "KMP targets (comma-separated)")
 	cmd.Flags().StringSliceVar(&flags.Subprojects, "subproject", nil, "limit to subproject (repeatable)")
 	cmd.Flags().BoolVar(&flags.Offline, "offline", false, "offline mode")

@@ -19,6 +19,8 @@
 - Include `buildSrc` dependencies by default (disable with `--buildsrc=false`).
 - Include buildscript classpath deps by default (disable with `--buildscript=false`).
 - Include composite builds (includeBuild) by default (disable with `--include-builds=false`).
+- `--config` accepts glob patterns (e.g., `*DebugCompileClasspath`).
+- When `--config` is not set and no sources are found, ksrc retries with broader configs (e.g., Android debug compile classpaths).
 
 ## Directory / Module Structure (planned)
 - `cmd/` — CLI entry points and wiring

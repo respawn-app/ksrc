@@ -93,7 +93,7 @@ gradle.rootProject { root ->
             proj.configurations.each { cfg ->
                 if (!cfg.canBeResolved) return
                 if (!configs.isEmpty()) {
-                    if (configs.contains(cfg.name)) selectedConfigs << cfg
+                    if (configs.any { cfgPattern -> matchesGlob(cfgPattern as String, cfg.name) }) selectedConfigs << cfg
                 } else {
                     if (matchesTargets(cfg.name, targets) && matchesScope(cfg.name, scopeProp as String)) selectedConfigs << cfg
                 }
@@ -118,7 +118,7 @@ gradle.rootProject { root ->
             proj.buildscript.configurations.each { cfg ->
                 if (!cfg.canBeResolved) return
                 if (!configs.isEmpty()) {
-                    if (configs.contains(cfg.name)) buildscriptConfigs << cfg
+                    if (configs.any { cfgPattern -> matchesGlob(cfgPattern as String, cfg.name) }) buildscriptConfigs << cfg
                 } else {
                     buildscriptConfigs << cfg
                 }

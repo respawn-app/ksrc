@@ -14,7 +14,7 @@ func newDepsCmd(app *App) *cobra.Command {
 		Use:   "deps",
 		Short: "List resolved dependencies and source availability",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			sources, deps, err := resolveSources(context.Background(), app, flags, "", false, false)
+			sources, deps, _, err := resolveSources(context.Background(), app, flags, "", false, false)
 			if err != nil {
 				return err
 			}
@@ -55,7 +55,7 @@ func newDepsCmd(app *App) *cobra.Command {
 
 	cmd.Flags().StringVar(&flags.Project, "project", ".", "project root")
 	cmd.Flags().StringVar(&flags.Scope, "scope", "compile", "dependency scope (compile|runtime|test|all)")
-	cmd.Flags().StringVar(&flags.Config, "config", "", "configuration name(s) (comma-separated)")
+	cmd.Flags().StringVar(&flags.Config, "config", "", "configuration name(s) or glob patterns (comma-separated)")
 	cmd.Flags().StringVar(&flags.Targets, "targets", "", "KMP targets (comma-separated)")
 	cmd.Flags().StringSliceVar(&flags.Subprojects, "subproject", nil, "limit to subproject (repeatable)")
 	cmd.Flags().BoolVar(&flags.Offline, "offline", false, "offline mode")
