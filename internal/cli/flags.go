@@ -27,6 +27,7 @@ type ResolveFlags struct {
 func (f ResolveFlags) ToOptions() gradle.ResolveOptions {
 	return gradle.ResolveOptions{
 		ProjectDir:            f.Project,
+		RootDir:               f.Project,
 		Module:                f.Module,
 		Group:                 f.Group,
 		Artifact:              f.Artifact,

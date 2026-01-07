@@ -13,6 +13,7 @@ import (
 
 type ResolveOptions struct {
 	ProjectDir            string
+	RootDir               string
 	ProjectPath           string
 	Module                string
 	Group                 string
@@ -55,6 +56,7 @@ func Resolve(ctx context.Context, runner executil.Runner, opts ResolveOptions) (
 
 		buildOpts := opts
 		buildOpts.ProjectDir = buildDir
+		buildOpts.RootDir = opts.ProjectDir
 		buildOpts.ProjectPath = ""
 
 		res, err := resolveBuild(ctx, runner, buildOpts)
@@ -87,7 +89,7 @@ func resolveOnce(ctx context.Context, runner executil.Runner, opts ResolveOption
 	}
 	defer cleanup()
 
-	gradleCmd, err := findGradle(runner, opts.ProjectDir)
+	gradleCmd, err := findGradle(runner, opts.ProjectDir, opts.RootDir)
 	if err != nil {
 		return ResolveResult{}, err
 	}
@@ -322,16 +324,32 @@ func parseLine(line, prefix string) (resolve.Coord, string, bool) {
 	return coord, strings.TrimSpace(parts[1]), true
 }
 
-func findGradle(runner executil.Runner, projectDir string) (string, error) {
-	wrapper := filepath.Join(projectDir, "gradlew")
-	if info, err := os.Stat(wrapper); err == nil && !info.IsDir() {
+func findGradle(runner executil.Runner, projectDir string, rootDir string) (string, error) {
+	if wrapper := localWrapperPath(projectDir); wrapper != "" {
 		return "./gradlew", nil
+	}
+	if rootDir != "" && !samePath(projectDir, rootDir) {
+		if wrapper := localWrapperPath(rootDir); wrapper != "" {
+			return wrapper, nil
+		}
 	}
 	path, err := runner.LookPath("gradle")
 	if err == nil && path != "" {
 		return "gradle", nil
 	}
 	return "", fmt.Errorf("gradle not found (no ./gradlew and gradle not on PATH)")
+}
+
+func localWrapperPath(projectDir string) string {
+	wrapper := filepath.Join(projectDir, "gradlew")
+	if info, err := os.Stat(wrapper); err == nil && !info.IsDir() {
+		abs, err := filepath.Abs(wrapper)
+		if err == nil {
+			return abs
+		}
+		return wrapper
+	}
+	return ""
 }
 
 func writeInitScript() (string, func(), error) {
